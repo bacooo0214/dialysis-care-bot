@@ -169,6 +169,13 @@ async def remove_member(family_id: str, line_user_id: str) -> None:
     await c.table("family_members").delete().eq("family_id", family_id).eq("user_id", user["id"]).execute()
 
 
+async def list_user_memberships(user_id: str) -> list[dict[str, Any]]:
+    """取使用者的所有家庭成員關係。"""
+    c = await db()
+    res = await c.table("family_members").select("*").eq("user_id", user_id).order("created_at").execute()
+    return res.data
+
+
 # ---------------------------------------------------------------------
 # medical_reports
 # ---------------------------------------------------------------------

@@ -36,12 +36,14 @@ from app.db import (
     list_confirmed_reports,
     list_members,
     list_rules,
+    list_user_memberships,
     new_batch_id,
     set_state,
     clear_state,
     update_family,
     update_membership,
     update_report,
+    update_user,
     upsert_daily,
     upsert_user,
 )
@@ -102,9 +104,24 @@ async def resolve_context(event: dict[str, Any]) -> tuple[dict[str, Any], dict[s
         # 個人聊天：綁定 user 的 active_family_id 或建立個人家庭
         if user.get("active_family_id"):
             family = await get_family(user["active_family_id"])
+        
+        # 若未設定或找不到，優先從現有成員關係中尋找個人家庭
+        if not family:
+            memberships = await list_user_memberships(user["id"])
+            for m in memberships:
+                candidate = await get_family(m["family_id"])
+                if candidate and not candidate.get("line_group_id"):
+                    family = candidate
+                    break
+
         if not family:
             family = await create_family(None, f"{display_name or '長輩'}的家庭")
             await update_membership(family["id"], user["id"], role="elder")
+
+        # 關鍵修復：持久化綁定 active_family_id，避免每一次互動都重複建立新家庭導致資料孤立
+        if user.get("active_family_id") != family["id"]:
+            await update_user(user["id"], active_family_id=family["id"])
+            user["active_family_id"] = family["id"]
 
     # 確保是成員
     await ensure_membership(family["id"], user["id"])
