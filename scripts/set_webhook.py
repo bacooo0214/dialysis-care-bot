@@ -13,7 +13,7 @@ from app.config import get_settings
 async def main() -> None:
     settings = get_settings()
     token = settings.line_channel_access_token
-    webhook_url = "https://488106c082c34f.lhr.life/callback"
+    webhook_url = "https://dialysis-care-bot.onrender.com/callback"
 
     headers = {
         "Authorization": f"Bearer {token}",

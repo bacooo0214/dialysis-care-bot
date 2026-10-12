@@ -230,7 +230,7 @@ def build_report_overview_flex(
     for r in results:
         if r.value is None:
             continue
-        trend_symbol = r.trend
+        trend_symbol = r.trend if r.trend else "-"
         trend_color = "#10B981" if trend_symbol == "↓" and r.direction == "high" else "#6B7280"
 
         metric_rows.append(
@@ -424,24 +424,25 @@ def build_charts_menu_flex(patient_nickname: str = "長輩") -> dict[str, Any]:
     }
 
 
-def build_daily_quick_reply() -> dict[str, Any]:
-    """日常紀錄 Quick Reply 項目清單。"""
+def build_main_quick_reply() -> dict[str, Any]:
+    """主快捷鍵 Quick Reply 清單（浮動在對話視窗下方的實體按鈕）。"""
     return {
         "items": [
             {
                 "type": "action",
                 "action": {
                     "type": "message",
-                    "label": "💧 喝水 100cc",
-                    "text": "喝水 100",
+                    "label": "📸 上傳報告",
+                    "text": "上傳報告",
                 },
             },
             {
                 "type": "action",
                 "action": {
-                    "type": "message",
-                    "label": "💧 喝水 200cc",
-                    "text": "喝水 200",
+                    "type": "postback",
+                    "label": "📈 趨勢折線圖",
+                    "data": "action=view_charts_menu",
+                    "displayText": "我想看數據趨勢圖",
                 },
             },
             {
@@ -466,12 +467,33 @@ def build_daily_quick_reply() -> dict[str, Any]:
                 "type": "action",
                 "action": {
                     "type": "message",
-                    "label": "📅 今日摘要",
+                    "label": "💧 喝水 100cc",
+                    "text": "喝水 100",
+                },
+            },
+            {
+                "type": "action",
+                "action": {
+                    "type": "message",
+                    "label": "💧 喝水 200cc",
+                    "text": "喝水 200",
+                },
+            },
+            {
+                "type": "action",
+                "action": {
+                    "type": "message",
+                    "label": "📋 今日總覽",
                     "text": "今日狀況",
                 },
             },
         ]
     }
+
+
+def build_daily_quick_reply() -> dict[str, Any]:
+    """日常紀錄 Quick Reply 項目清單。"""
+    return build_main_quick_reply()
 
 
 def build_disclaimer_flex() -> dict[str, Any]:

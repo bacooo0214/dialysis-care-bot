@@ -49,6 +49,7 @@ from app.flex_messages import (
     build_charts_menu_flex,
     build_daily_quick_reply,
     build_disclaimer_flex,
+    build_main_quick_reply,
     build_ocr_carousel,
     build_ocr_confirm_bubble,
     build_report_overview_flex,
@@ -247,12 +248,27 @@ async def handle_image_message(
     else:
         flex_msg = build_ocr_carousel(saved_drafts, overrides)
 
-    prompt_text = "已為您辨識出檢驗數據，請核對以下數字是否正確："
+    prompt_text = (
+        "✅ 已成功辨識檢驗報告！\n"
+        "請核對下方卡片中的各項數值：\n"
+        "👉 核對正確請直接點擊下方【數字正確，儲存】。\n"
+        "⏳ 系統將於 3~5 秒內為您進行透析標準比對，生成紅綠燈成績單與專屬 AI 白話照護建議！"
+    )
     if ocr_result.note:
-        prompt_text += f"\n💡 備註：{ocr_result.note}"
+        prompt_text += f"\n\n💡 備註：{ocr_result.note}"
 
     if reply_token:
-        await line().reply(reply_token, [{"type": "text", "text": prompt_text}, flex_msg])
+        await line().reply(
+            reply_token,
+            [
+                {
+                    "type": "text",
+                    "text": prompt_text,
+                    "quickReply": build_main_quick_reply(),
+                },
+                flex_msg,
+            ],
+        )
 
 
 # ---------------------------------------------------------------------
@@ -277,6 +293,9 @@ async def handle_postback(
 
     if action == "confirm_report":
         report_id = params.get("id")
+        # 立即啟動 LINE 官方載入中提示動畫
+        await line().show_loading(user_id, seconds=30)
+
         draft = await get_report(report_id)
         if not draft:
             if reply_token:
@@ -312,6 +331,11 @@ async def handle_postback(
             asyncio.create_task(sheets.sync_report_to_sheet(family["sheet_id"], confirmed))
 
         # 6. 回傳成績單與 AI 建議卡片
+        intro_msg = {
+            "type": "text",
+            "text": f"🎉 {patient_nickname} 的檢驗成績單分析完成！\n已為您對齊臨床透析安全標準，請參考下方紅綠燈評估：",
+        }
+
         overview_flex = build_report_overview_flex(
             confirmed, results, patient_nickname, advice_id=saved_advice["id"]
         )
@@ -319,11 +343,11 @@ async def handle_postback(
         advice_msg = {
             "type": "text",
             "text": f"💡 照護建議：\n\n{ai_res.text}",
-            "quickReply": build_daily_quick_reply(),
+            "quickReply": build_main_quick_reply(),
         }
 
         if reply_token:
-            await line().reply(reply_token, [overview_flex, advice_msg])
+            await line().reply(reply_token, [intro_msg, overview_flex, advice_msg])
 
         # 7. 異常警報：若有紅燈，主動在群組 @ 標記家屬
         red_findings = [f for f in findings if f.level == Level.RED]
