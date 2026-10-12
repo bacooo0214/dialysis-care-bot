@@ -544,3 +544,128 @@ def build_disclaimer_flex() -> dict[str, Any]:
             },
         },
     }
+
+
+def build_changelog_flex() -> dict[str, Any]:
+    """版本更新紀錄 Flex 互動卡片。"""
+    return {
+        "type": "flex",
+        "altText": "雲端小乖孫 最新版本更新紀錄",
+        "contents": {
+            "type": "bubble",
+            "size": "mega",
+            "header": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [
+                    {
+                        "type": "text",
+                        "text": "🚀 系統版本歷程",
+                        "weight": "bold",
+                        "size": "xl",
+                        "color": "#10B981",
+                    },
+                    {
+                        "type": "text",
+                        "text": "最新版本：v1.2.0 (2026-10-13)",
+                        "size": "xs",
+                        "color": "#6B7280",
+                        "margin": "xs",
+                    },
+                ],
+                "paddingBottom": "none",
+            },
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [
+                    {
+                        "type": "box",
+                        "layout": "vertical",
+                        "contents": [
+                            {
+                                "type": "text",
+                                "text": "【v1.2.0】最新更新亮點 ✨",
+                                "weight": "bold",
+                                "size": "md",
+                                "color": "#111827",
+                            },
+                            {
+                                "type": "text",
+                                "text": "• 浮動實體快捷鍵：對話自帶 7 大圓角按鈕\n• 辨識進度預估：分析即時提示預估時間\n• 雲端熱修復：解決趨勢退件問題",
+                                "size": "sm",
+                                "color": "#4B5563",
+                                "wrap": True,
+                                "margin": "sm",
+                            },
+                        ],
+                        "backgroundColor": "#F0FDF4",
+                        "cornerRadius": "md",
+                        "paddingAll": "md",
+                    },
+                    {
+                        "type": "box",
+                        "layout": "vertical",
+                        "contents": [
+                            {
+                                "type": "text",
+                                "text": "【v1.1.0】雲端正式託管 ☁️ (2026-10-13)",
+                                "weight": "bold",
+                                "size": "sm",
+                                "color": "#1F2937",
+                            },
+                            {
+                                "type": "text",
+                                "text": "• 遷移 Render.com 雲端常駐容器\n• UptimeRobot 24/7 永不休眠雙保險\n• 家庭群組協同模式全開",
+                                "size": "xs",
+                                "color": "#6B7280",
+                                "wrap": True,
+                                "margin": "xs",
+                            },
+                        ],
+                        "margin": "md",
+                    },
+                    {
+                        "type": "box",
+                        "layout": "vertical",
+                        "contents": [
+                            {
+                                "type": "text",
+                                "text": "【v1.0.0】核心發布 🎉 (2026-10-12)",
+                                "weight": "bold",
+                                "size": "sm",
+                                "color": "#1F2937",
+                            },
+                            {
+                                "type": "text",
+                                "text": "• Gemini 視覺 OCR、紅綠燈成績單\n• 大字體趨勢圖、AI 白話照護建議",
+                                "size": "xs",
+                                "color": "#6B7280",
+                                "wrap": True,
+                                "margin": "xs",
+                            },
+                        ],
+                        "margin": "md",
+                    },
+                ],
+                "paddingAll": "lg",
+            },
+            "footer": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [
+                    {
+                        "type": "button",
+                        "style": "primary",
+                        "color": "#10B981",
+                        "action": {
+                            "type": "uri",
+                            "label": "🌐 查看完整網頁版歷程",
+                            "uri": "https://dialysis-care-bot.onrender.com/changelog",
+                        },
+                    }
+                ],
+                "paddingAll": "md",
+            },
+        },
+    }

@@ -46,6 +46,7 @@ from app.db import (
     upsert_user,
 )
 from app.flex_messages import (
+    build_changelog_flex,
     build_charts_menu_flex,
     build_daily_quick_reply,
     build_disclaimer_flex,
@@ -633,6 +634,11 @@ async def handle_text_message(
         await set_state(user_id, context_id, "awaiting_report", ttl_minutes=5)
         if reply_token:
             await line().reply(reply_token, [{"type": "text", "text": "請直接拍下「血液透析檢驗紀錄表」並傳送到這裡 📷"}])
+        return
+
+    if text in ("版本", "版本更新", "更新紀錄", "更新說明", "changelog", "版本歷程", "更新"):
+        if reply_token:
+            await line().reply(reply_token, [build_changelog_flex()])
         return
 
     # 若在 1:1 個人對話，且輸入長輩問答，AI 友善回答
