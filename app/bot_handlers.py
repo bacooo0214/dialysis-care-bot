@@ -408,7 +408,7 @@ async def handle_postback(
             return
 
         if metric_key == "summary":
-            png_bytes = charts.render_summary_dashboard(history[-1], patient_nickname, family.get("metric_overrides"))
+            png_bytes = charts.render_summary_dashboard(history, patient_nickname, family.get("metric_overrides"))
         else:
             png_bytes = charts.render_metric_trend(metric_key, history, patient_nickname, family.get("metric_overrides"))
 
