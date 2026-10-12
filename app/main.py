@@ -13,6 +13,7 @@ from app.config import get_settings
 from app.line_api import line
 from app.routes.changelog import router as changelog_router
 from app.routes.cron import router as cron_router
+from app.routes.dashboard import router as dashboard_router
 from app.routes.webhook import router as webhook_router
 
 # 設定日誌格式
@@ -52,6 +53,7 @@ app.add_middleware(
 app.include_router(webhook_router)
 app.include_router(cron_router)
 app.include_router(changelog_router)
+app.include_router(dashboard_router)
 
 
 @app.get("/health")
