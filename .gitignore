@@ -1,0 +1,20 @@
+# 環境變數與機密金鑰（絕不上傳）
+.env
+.env.local
+.env.*.local
+
+# Python 虛擬環境與快取
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.pytest_cache/
+
+# 暫存與二進位檔案
+cloudflared.exe
+ngrok.exe
+*.log
+.DS_Store
+Thumbs.db
