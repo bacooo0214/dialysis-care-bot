@@ -358,8 +358,10 @@ def build_report_overview_flex(
     }
 
 
-def build_charts_menu_flex(patient_nickname: str = "長輩") -> dict[str, Any]:
+def build_charts_menu_flex(patient_nickname: str = "長輩", family_id: str | None = None) -> dict[str, Any]:
     """圖表選單卡片。"""
+    dash_url = f"https://dialysis-care-bot.onrender.com/dashboard?family_id={family_id}" if family_id else "https://dialysis-care-bot.onrender.com/dashboard"
+
     buttons = [
         ("綜合儀表板", "summary", "#4F46E5"),
         ("鉀離子 (K)", "potassium", "#059669"),
@@ -369,7 +371,22 @@ def build_charts_menu_flex(patient_nickname: str = "長輩") -> dict[str, Any]:
         ("透析效率 (Kt/V)", "kt_v", "#7C3AED"),
     ]
 
-    btn_rows: list[dict[str, Any]] = []
+    btn_rows: list[dict[str, Any]] = [
+        # 推薦：直接開啟網頁版數據中心
+        {
+            "type": "button",
+            "style": "primary",
+            "height": "sm",
+            "color": "#10B981",
+            "action": {
+                "type": "uri",
+                "label": "🌐 開啟線上互動數據中心 (推薦)",
+                "uri": dash_url,
+            },
+            "margin": "xs",
+        },
+        {"type": "separator", "margin": "sm"},
+    ]
     for label, metric_key, color in buttons:
         btn_rows.append(
             {
@@ -378,7 +395,7 @@ def build_charts_menu_flex(patient_nickname: str = "長輩") -> dict[str, Any]:
                 "height": "sm",
                 "action": {
                     "type": "postback",
-                    "label": f"📊 {label}",
+                    "label": f"📊 在 LINE 看 {label}",
                     "data": f"action=render_chart&metric={metric_key}",
                     "displayText": f"查看 {label} 趨勢圖",
                 },
@@ -405,7 +422,7 @@ def build_charts_menu_flex(patient_nickname: str = "長輩") -> dict[str, Any]:
                     },
                     {
                         "type": "text",
-                        "text": "點選想查看的項目：",
+                        "text": "支援網頁全螢幕互動縮放或 LINE 圖卡檢視：",
                         "size": "sm",
                         "color": "#6B7280",
                         "margin": "xs",
@@ -424,10 +441,19 @@ def build_charts_menu_flex(patient_nickname: str = "長輩") -> dict[str, Any]:
     }
 
 
-def build_main_quick_reply() -> dict[str, Any]:
+def build_main_quick_reply(family_id: str | None = None) -> dict[str, Any]:
     """主快捷鍵 Quick Reply 清單（浮動在對話視窗下方的實體按鈕）。"""
+    dash_url = f"https://dialysis-care-bot.onrender.com/dashboard?family_id={family_id}" if family_id else "https://dialysis-care-bot.onrender.com/dashboard"
     return {
         "items": [
+            {
+                "type": "action",
+                "action": {
+                    "type": "uri",
+                    "label": "📊 線上數據中心",
+                    "uri": dash_url,
+                },
+            },
             {
                 "type": "action",
                 "action": {

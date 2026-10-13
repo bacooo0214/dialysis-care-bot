@@ -11,7 +11,7 @@ from google.genai import types
 from pydantic import BaseModel, Field
 
 from app.config import get_settings
-from app.metrics import LEVEL_LABEL, Level, MetricResult
+from app.metrics import LEVEL_LABEL, METRICS, Level, MetricResult
 from app.services.llm import gemini
 
 log = logging.getLogger(__name__)
@@ -188,3 +188,71 @@ async def classify_rule(content: str) -> RuleClassification:
     except Exception:  # noqa: BLE001
         log.exception("rule classification failed")
         return RuleClassification(metric=None, direction="any", title=content[:10])
+
+
+# ---------------------------------------------------------------------
+# 自然語言對話與數據統整：AI 照護專員
+# ---------------------------------------------------------------------
+
+QUERY_SYSTEM = """你是「腎好伴」，一位溫暖、專業、有耐心的血液透析照護小幫手（雲端小乖孫），對象是正在洗腎的台灣長輩與其家屬。
+
+重要原則：
+1. 說話語氣：台灣在地口語白話、溫暖親切、像有同理心的醫療照護專員或貼心孫輩，不用死板機器人口氣。
+2. 結合實際數據：如果提供了長輩的檢驗數據或日常紀錄，請【主動且精準地引用這些數值】來回答使用者的問題（例如指出鉀 5.1 稍高、血紅素 8.7 偏低等）。
+3. 實用且具體：給出 2~3 點日常可立即實踐的生活、飲食技巧（如汆燙蔬菜去鉀、吃肉配降磷劑、口渴含冰塊），不要講空泛大道理。
+4. 安全守則：嚴禁指示擅自停藥或改藥，藥物問題一律請示透析醫護團隊；不用恐嚇威脅字眼。
+5. 簡潔適中：字數控制在 160 ~ 280 字以內，方便在 LINE 手機螢幕上快速閱讀。
+"""
+
+
+async def answer_patient_query(
+    query: str,
+    patient_nickname: str = "長輩",
+    latest_report: dict[str, Any] | None = None,
+    daily_record: dict[str, Any] | None = None,
+    rules: list[dict[str, Any]] | None = None,
+) -> str:
+    """針對使用者在 LINE 的隨意提問，結合當前檢驗數據與衛教知識產生 AI 統整回覆。"""
+    lines = [f"長輩稱呼：{patient_nickname}", f"使用者問題：{query}"]
+
+    if latest_report:
+        lines.append(f"\n【最新檢驗報告 ({latest_report.get('test_date')})】")
+        for k in ["potassium", "phosphorus", "calcium", "hemoglobin", "sodium", "albumin", "creatinine", "kt_v", "ipth"]:
+            val = latest_report.get(k)
+            if val is not None:
+                m = METRICS.get(k)
+                if m:
+                    lines.append(f"- {m.name} ({m.code}): {m.fmt(val)} {m.unit} (目標: {m.range_text()})")
+    else:
+        lines.append("\n【最新檢驗報告】：目前尚無已確認的報告紀錄。")
+
+    if daily_record:
+        lines.append(f"\n【今日自主管理紀錄】")
+        if daily_record.get("weight_kg"):
+            lines.append(f"- 今日體重: {daily_record.get('weight_kg')} kg")
+        if daily_record.get("systolic") and daily_record.get("diastolic"):
+            lines.append(f"- 今日血壓: {daily_record.get('systolic')}/{daily_record.get('diastolic')} mmHg")
+        if daily_record.get("water_ml"):
+            lines.append(f"- 今日喝水: {daily_record.get('water_ml')} ml")
+
+    if rules:
+        fam_rules = [r for r in rules if r.get("family_id")]
+        if fam_rules:
+            lines.append("\n【家屬照護經驗（優先採用）】")
+            for r in fam_rules[:3]:
+                lines.append(f"- {r.get('title')}: {r.get('content')}")
+
+    prompt_content = "\n".join(lines)
+    try:
+        resp = await gemini().aio.models.generate_content(
+            model=get_settings().gemini_model,
+            contents=prompt_content,
+            config=types.GenerateContentConfig(
+                system_instruction=QUERY_SYSTEM,
+                temperature=0.6,
+            ),
+        )
+        return resp.text.strip() if resp.text else f"收到您的問題！{patient_nickname}的身體狀況很重要，有任何不適建議隨時告知透析室醫護團隊喔！"
+    except Exception:
+        log.exception("answer_patient_query failed")
+        return f"{patient_nickname}的照護非常重要！關於「{query}」，建議您在下次透析時向護理師或醫師進一步諮詢喔！"

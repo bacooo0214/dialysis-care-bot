@@ -358,10 +358,11 @@ async def handle_postback(
             confirmed, results, patient_nickname, advice_id=saved_advice["id"]
         )
 
+        dash_url = f"https://dialysis-care-bot.onrender.com/dashboard?family_id={family_id}"
         advice_msg = {
             "type": "text",
-            "text": f"💡 照護建議：\n\n{ai_res.text}",
-            "quickReply": build_main_quick_reply(),
+            "text": f"💡 照護建議：\n\n{ai_res.text}\n\n📱 查看線上完整互動趨勢與數據：\n{dash_url}",
+            "quickReply": build_main_quick_reply(family_id),
         }
 
         if reply_token:
@@ -394,7 +395,7 @@ async def handle_postback(
 
     elif action == "view_charts_menu":
         if reply_token:
-            await line().reply(reply_token, [build_charts_menu_flex(patient_nickname)])
+            await line().reply(reply_token, [build_charts_menu_flex(patient_nickname, family_id)])
 
     elif action == "render_chart":
         metric_key = params.get("metric", "summary")
@@ -622,7 +623,7 @@ async def handle_text_message(
 
     if text in ("看趨勢", "看圖表", "趨勢圖"):
         if reply_token:
-            await line().reply(reply_token, [build_charts_menu_flex(patient_nickname)])
+            await line().reply(reply_token, [build_charts_menu_flex(patient_nickname, family_id)])
         return
 
     if text in ("今日狀況", "今日紀錄", "今日數據"):
@@ -658,20 +659,35 @@ async def handle_text_message(
             await line().reply(reply_token, [build_changelog_flex()])
         return
 
-    # 若在 1:1 個人對話，且輸入長輩問答，AI 友善回答
-    if not family.get("line_group_id"):
-        # 個人對話時提供通用說明
-        if reply_token:
-            await line().reply(
-                reply_token,
-                [
-                    {
-                        "type": "text",
-                        "text": f"您好！您可以直接拍照上傳檢驗單，或點選下方快捷功能按鈕：",
-                        "quickReply": build_daily_quick_reply(),
-                    }
-                ],
-            )
+    # 8. 自然語言智能對話（AI 照護專員）：結合真實最新數據與衛教知識直接統整回答！
+    await line().show_loading(user_id, seconds=20)
+    history = await list_confirmed_reports(family_id, limit=2)
+    latest_rep = history[-1] if history else None
+    daily_rec = await get_daily(family_id, today)
+    care_rules = await list_rules(family_id)
+
+    ai_reply = await advice.answer_patient_query(
+        query=text,
+        patient_nickname=patient_nickname,
+        latest_report=latest_rep,
+        daily_record=daily_rec,
+        rules=care_rules,
+    )
+
+    dash_url = f"https://dialysis-care-bot.onrender.com/dashboard?family_id={family_id}"
+    full_reply = f"{ai_reply}\n\n📊 查看完整互動趨勢與報告：\n{dash_url}"
+
+    if reply_token:
+        await line().reply(
+            reply_token,
+            [
+                {
+                    "type": "text",
+                    "text": full_reply,
+                    "quickReply": build_main_quick_reply(family_id),
+                }
+            ],
+        )
 
 
 # ---------------------------------------------------------------------
