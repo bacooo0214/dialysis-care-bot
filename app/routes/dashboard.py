@@ -1,6 +1,7 @@
 """後台數據統整與互動式視覺化健康中心 Web 路由。
 
 文學文青質感 (Literary & Warm Paper Aesthetic) + 長輩護眼大字版 (Senior-Friendly UI/UX)。
+支援主分頁導航（總覽手札 vs 歷次檢驗詳實歷程）、月份篩選與折疊卡片，解決頁面過長問題。
 """
 
 from __future__ import annotations
@@ -38,12 +39,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
        ======================================================== */
     :root {
       --bg-paper: #FBF9F5;          /* 暖宣紙底色，溫潤不刺眼 */
-      --bg-subtle: #F4EFEB;         /* 微深茶米色 */
+      --bg-subtle: #F3ECE4;         /* 淺焙茶米色 */
       --card-bg: #FFFFFF;           /* 純淨暖白手札卡片 */
-      --card-border: #E8E2D7;       /* 淺焙茶色纖細邊框 */
+      --card-border: #E6DFD3;       /* 淺焙茶色纖細邊框 */
       --text-ink: #2C302E;          /* 松煙墨黑，柔和高對比 */
-      --text-muted: #646E68;        /* 青苔灰，說明文字 */
-      --text-dim: #8C9690;          /* 輕墨灰，次要刻度 */
+      --text-muted: #5F6A64;        /* 青苔灰，說明文字 */
+      --text-dim: #8E9892;          /* 輕墨灰，次要刻度 */
       
       /* 文人雅致狀態色彩 */
       --c-bamboo: #245A44;          /* 竹青/松柏綠（正常安好） */
@@ -77,6 +78,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       --line-height-body: 1.85;
       letter-spacing: 0.02em;
     }
+    body.senior-mode .main-tab-btn {
+      padding: 12px 24px;
+      font-size: 1.15rem;
+    }
     body.senior-mode .metric-pill {
       padding: 16px 14px;
     }
@@ -87,6 +92,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     body.senior-mode .btn {
       padding: 12px 20px;
       font-size: 1.05rem;
+    }
+    body.senior-mode .folder-header {
+      padding: 20px 22px;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -111,13 +119,13 @@ DASHBOARD_HTML = """<!DOCTYPE html>
        頂部：人文典雅 Header 與功能列
        ======================================================== */
     header {
-      margin-bottom: 22px;
+      margin-bottom: 20px;
       display: flex;
       justify-content: space-between;
       align-items: flex-end;
       flex-wrap: wrap;
       gap: 14px;
-      padding-bottom: 18px;
+      padding-bottom: 16px;
       border-bottom: 1px dashed var(--card-border);
     }
 
@@ -195,6 +203,70 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     .btn:hover { background: var(--bg-subtle); }
 
     /* ========================================================
+       頂級主標籤頁導航 (Main Tabs Navigation)
+       ======================================================== */
+    .main-nav-bar {
+      display: flex;
+      gap: 10px;
+      background: var(--bg-subtle);
+      padding: 6px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      border: 1px solid var(--card-border);
+    }
+    .main-tab-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: all 0.22s ease;
+      font-family: 'Noto Sans TC', sans-serif;
+    }
+    .main-tab-btn:hover {
+      color: var(--text-ink);
+    }
+    .main-tab-btn.active {
+      background: #FFFFFF;
+      color: var(--c-bamboo);
+      box-shadow: 0 2px 8px rgba(44, 48, 46, 0.06);
+    }
+    .tab-badge {
+      display: inline-block;
+      font-size: 0.78rem;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--c-bamboo-bg);
+      color: var(--c-bamboo);
+      border: 1px solid rgba(36, 90, 68, 0.2);
+    }
+    .main-tab-btn.active .tab-badge {
+      background: var(--c-bamboo);
+      color: #FFFFFF;
+    }
+
+    /* 視圖切換容器 */
+    .view-panel {
+      display: none;
+    }
+    .view-panel.active {
+      display: block;
+      animation: fadeIn 0.25s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ========================================================
        1. AI 智能長輩月候箋（溫暖如家書）
        ======================================================== */
     .letter-card {
@@ -202,7 +274,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       border: 1px solid var(--card-border);
       border-radius: var(--radius-card);
       padding: 24px 26px;
-      margin-bottom: 26px;
+      margin-bottom: 24px;
       box-shadow: var(--shadow-paper);
       position: relative;
     }
@@ -266,6 +338,28 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     .tag-bamboo { background: var(--c-bamboo-bg); color: var(--c-bamboo); border: 1px solid rgba(36, 90, 68, 0.2); }
     .tag-amber { background: var(--c-amber-bg); color: var(--c-amber); border: 1px solid rgba(184, 93, 25, 0.2); }
     .tag-cinnabar { background: var(--c-cinnabar-bg); color: var(--c-cinnabar); border: 1px solid rgba(163, 42, 42, 0.2); }
+
+    /* ========================================================
+       最新一期核心快覽卡片
+       ======================================================== */
+    .quick-shelf-box {
+      background: #FFFFFF;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-card);
+      padding: 20px 22px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-paper);
+    }
+    .quick-shelf-title {
+      font-family: 'Noto Serif TC', serif;
+      font-size: 1.12rem;
+      font-weight: 700;
+      margin-bottom: 14px;
+      color: var(--text-ink);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
 
     /* ========================================================
        2. 互動式跨月走勢折線圖（文人山水藍調）
@@ -339,58 +433,154 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     }
 
     /* ========================================================
-       3. 歷次檢驗成績手帖（翻閱式健康存摺）
+       3. 獨立分頁：歷次檢驗成績詳實歷程 (Tab 2)
        ======================================================== */
-    .timeline-title {
-      font-family: 'Noto Serif TC', serif;
-      font-size: 1.35rem;
-      font-weight: 700;
-      margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--text-ink);
-    }
-
-    .report-sheet {
-      background: #FFFFFF;
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius-card);
-      padding: 22px 24px;
-      margin-bottom: 18px;
-      box-shadow: var(--shadow-paper);
-      transition: border-color 0.2s;
-    }
-    .report-sheet:hover {
-      border-color: #D4CBBC;
-    }
-
-    .sheet-meta {
+    .history-controls {
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
       gap: 12px;
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px dashed var(--card-border);
+      margin-bottom: 20px;
+      background: #FFFFFF;
+      padding: 14px 18px;
+      border-radius: 12px;
+      border: 1px solid var(--card-border);
+      box-shadow: var(--shadow-paper);
     }
-    .sheet-date {
+    .history-filter-pills {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .history-pill {
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.86rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: var(--bg-subtle);
+      color: var(--text-muted);
+      border: 1px solid transparent;
+      transition: all 0.2s ease;
+    }
+    .history-pill:hover {
+      background: #ECE4DA;
+      color: var(--text-ink);
+    }
+    .history-pill.active {
+      background: var(--c-bamboo);
+      color: #FFFFFF;
+      border-color: var(--c-bamboo);
+    }
+
+    /* 歷史月檢手帖折疊卡片 (Folder Accordion) */
+    .folder-card {
+      background: #FFFFFF;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-card);
+      margin-bottom: 16px;
+      box-shadow: var(--shadow-paper);
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+    .folder-card:hover {
+      border-color: #D4CBBC;
+    }
+    .folder-header {
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      background: #FFFFFF;
+      user-select: none;
+      transition: background-color 0.15s;
+    }
+    .folder-header:hover {
+      background: #FAF8F5;
+    }
+    .folder-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .folder-date {
       font-family: 'Noto Serif TC', serif;
-      font-size: 1.25rem;
+      font-size: 1.15rem;
       font-weight: 700;
       color: var(--text-ink);
     }
-
-    .stamp-badge {
-      font-size: 0.82rem;
-      font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 6px;
-      border: 1px solid currentColor;
+    .folder-summary-tags {
+      display: flex;
+      gap: 6px;
+      font-size: 0.8rem;
     }
-    .stamp-good { color: var(--c-bamboo); background: var(--c-bamboo-bg); }
-    .stamp-draft { color: var(--c-amber); background: var(--c-amber-bg); }
+    .folder-toggle-icon {
+      font-size: 0.95rem;
+      color: var(--text-dim);
+      transition: transform 0.2s ease;
+    }
+    .folder-card.open .folder-toggle-icon {
+      transform: rotate(180deg);
+    }
+    .folder-body {
+      display: none;
+      padding: 0 20px 20px 20px;
+      border-top: 1px dashed var(--card-border);
+      background: #FAF8F5;
+    }
+    .folder-card.open .folder-body {
+      display: block;
+      padding-top: 18px;
+    }
+
+    /* 橫向歷史指標速查總表 (Matrix Table) */
+    .matrix-box {
+      background: #FFFFFF;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-card);
+      padding: 20px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-paper);
+      overflow-x: auto;
+    }
+    .matrix-title {
+      font-family: 'Noto Serif TC', serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--text-ink);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .matrix-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      text-align: center;
+      min-width: 600px;
+    }
+    .matrix-table th, .matrix-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .matrix-table th {
+      background: var(--bg-subtle);
+      color: var(--text-ink);
+      font-weight: 700;
+      font-family: 'Noto Serif TC', serif;
+    }
+    .matrix-table th:first-child, .matrix-table td:first-child {
+      text-align: left;
+      font-weight: 600;
+    }
+    .matrix-table tr:hover {
+      background: #FDFBF8;
+    }
 
     /* 雅緻指標格子 */
     .metrics-shelf {
@@ -404,7 +594,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     }
 
     .metric-pill {
-      background: var(--bg-paper);
+      background: #FFFFFF;
       border: 1px solid var(--card-border);
       border-radius: var(--radius-sm);
       padding: 12px 14px;
@@ -449,6 +639,16 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     .v-cinnabar { color: var(--c-cinnabar); }
     .v-none { color: var(--text-dim); }
 
+    .stamp-badge {
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 6px;
+      border: 1px solid currentColor;
+    }
+    .stamp-good { color: var(--c-bamboo); background: var(--c-bamboo-bg); }
+    .stamp-draft { color: var(--c-amber); background: var(--c-amber-bg); }
+
     /* 空狀態 */
     .empty-card {
       text-align: center;
@@ -457,6 +657,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       background: #FFFFFF;
       border-radius: var(--radius-card);
       border: 1px dashed var(--card-border);
+      box-shadow: var(--shadow-paper);
+    }
+    .empty-card h3 {
+      font-family: 'Noto Serif TC', serif;
+      color: var(--text-ink);
+      margin-bottom: 8px;
     }
 
     /* 底部返回 LINE 提示 */
@@ -486,46 +692,98 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       </div>
     </header>
 
-    <!-- 1. AI 智能長輩月候箋 -->
-    <div class="letter-card" id="aiLetterCard">
-      <div class="letter-header">
-        <span class="letter-seal">📜 照護手札 · 智能月箋</span>
-        <span class="letter-date" id="letterDate">最新紀錄：載入中...</span>
-      </div>
-      <div class="letter-content" id="letterContent">
-        正在為長輩整理各項檢驗走勢與生活安好建議...
-      </div>
-      <div class="letter-tags" id="letterTags">
-        <!-- 標籤區 -->
-      </div>
-    </div>
+    <!-- 頂級主標籤導航欄 (主視圖切換) -->
+    <nav class="main-nav-bar" role="tablist">
+      <button class="main-tab-btn active" id="tabNavOverview" onclick="switchMainTab('overview')" role="tab">
+        🍂 照護手札與走勢
+      </button>
+      <button class="main-tab-btn" id="tabNavHistory" onclick="switchMainTab('history')" role="tab">
+        📋 歷次檢驗詳實歷程 <span class="tab-badge" id="reportCountBadge">0</span>
+      </button>
+    </nav>
 
-    <!-- 2. 互動式跨月走勢折線圖 -->
-    <div class="chart-box">
-      <div class="chart-top-bar">
-        <div class="chart-heading">
-          <h2>📈 歷史跨月指標走勢</h2>
-          <p>綠色柔和區間代表醫師建議的「安全目標範圍」</p>
+    <!-- ==========================================
+         視圖 1：【照護手札與走勢】 (Overview Tab)
+         ========================================== -->
+    <main id="viewOverview" class="view-panel active">
+      <!-- 1. AI 智能長輩月候箋 -->
+      <div class="letter-card" id="aiLetterCard">
+        <div class="letter-header">
+          <span class="letter-seal">📜 照護手札 · 智能月箋</span>
+          <span class="letter-date" id="letterDate">最新紀錄：等待建立</span>
         </div>
-        <div class="chart-tabs">
-          <button class="tab-btn active" onclick="switchMetric('all')">四大指標</button>
-          <button class="tab-btn" onclick="switchMetric('potassium')">血鉀 (K)</button>
-          <button class="tab-btn" onclick="switchMetric('phosphorus')">血磷 (P)</button>
-          <button class="tab-btn" onclick="switchMetric('hemoglobin')">血紅素 (Hb)</button>
-          <button class="tab-btn" onclick="switchMetric('calcium')">鈣 (Ca)</button>
-          <button class="tab-btn" onclick="switchMetric('albumin')">白蛋白 (Alb)</button>
+        <div class="letter-content" id="letterContent">
+          正在準備長輩的健康月箋...
+        </div>
+        <div class="letter-tags" id="letterTags">
+          <!-- 標籤區 -->
         </div>
       </div>
-      <div class="chart-area-wrap">
-        <canvas id="trendChart"></canvas>
-      </div>
-    </div>
 
-    <!-- 3. 歷次檢驗成績手帖 -->
-    <h3 class="timeline-title">📋 歷次檢驗成績詳實歷程</h3>
-    <div id="reportsListContainer">
-      <!-- 動態載入報告 -->
-    </div>
+      <!-- 2. 最新一期核心數值快覽 -->
+      <div class="quick-shelf-box" id="latestQuickBox" style="display: none;">
+        <div class="quick-shelf-title">
+          <span>🌿 最近一期檢驗核心快報</span>
+          <span id="quickReportDate" style="font-size: 0.88rem; color: var(--text-muted); font-family: 'Noto Sans TC';"></span>
+        </div>
+        <div class="metrics-shelf" id="quickShelfGrid">
+          <!-- 動態載入最新一期指標 -->
+        </div>
+      </div>
+
+      <!-- 3. 互動式跨月走勢折線圖 -->
+      <div class="chart-box">
+        <div class="chart-top-bar">
+          <div class="chart-heading">
+            <h2>📈 歷史跨月指標走勢</h2>
+            <p>綠色柔和區間代表醫師建議的「安全目標範圍」</p>
+          </div>
+          <div class="chart-tabs">
+            <button class="tab-btn active" onclick="switchMetric('all')">四大指標</button>
+            <button class="tab-btn" onclick="switchMetric('potassium')">血鉀 (K)</button>
+            <button class="tab-btn" onclick="switchMetric('phosphorus')">血磷 (P)</button>
+            <button class="tab-btn" onclick="switchMetric('hemoglobin')">血紅素 (Hb)</button>
+            <button class="tab-btn" onclick="switchMetric('calcium')">鈣 (Ca)</button>
+            <button class="tab-btn" onclick="switchMetric('albumin')">白蛋白 (Alb)</button>
+          </div>
+        </div>
+        <div class="chart-area-wrap">
+          <canvas id="trendChart"></canvas>
+        </div>
+      </div>
+    </main>
+
+    <!-- ==========================================
+         視圖 2：【歷次檢驗詳實歷程】 (History Tab)
+         ========================================== -->
+    <main id="viewHistory" class="view-panel">
+      <!-- 篩選列與期數書籤 -->
+      <div class="history-controls" id="historyControls" style="display: none;">
+        <div class="history-filter-pills" id="historyFilterPills">
+          <!-- 動態生成月份書籤按鈕 -->
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn" onclick="toggleAllFolders(true)">展開全部</button>
+          <button class="btn" onclick="toggleAllFolders(false)">收合全部</button>
+        </div>
+      </div>
+
+      <!-- 跨月對比橫向速查表 -->
+      <div class="matrix-box" id="historyMatrixBox" style="display: none;">
+        <div class="matrix-title">
+          <span>📊 跨月核心數值橫向速查</span>
+          <span style="font-size: 0.82rem; color: var(--text-muted); font-weight: normal;">向右滑動可查閱更多月份</span>
+        </div>
+        <table class="matrix-table" id="matrixTable">
+          <!-- 動態生成跨月對照表格 -->
+        </table>
+      </div>
+
+      <!-- 手風琴式月份折疊卡片清單（杜絕頁面過長） -->
+      <div id="reportsListContainer">
+        <!-- 動態載入報告 -->
+      </div>
+    </main>
 
     <div class="liff-footer">
       <p>— 陪伴長輩平穩透析，願一家人日日安好 —</p>
@@ -552,8 +810,26 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
     let chartInstance = null;
     let currentTab = 'all';
+    let selectedMonthFilter = 'all';
 
-    // 1. 長輩大字模式切換
+    // 1. 主視圖標籤頁切換
+    function switchMainTab(tabName) {
+      document.querySelectorAll('.main-tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
+
+      if (tabName === 'overview') {
+        document.getElementById('tabNavOverview').classList.add('active');
+        document.getElementById('viewOverview').classList.add('active');
+        if (chartInstance) {
+          chartInstance.resize();
+        }
+      } else {
+        document.getElementById('tabNavHistory').classList.add('active');
+        document.getElementById('viewHistory').classList.add('active');
+      }
+    }
+
+    // 2. 長輩大字模式切換
     function initSeniorMode() {
       const saved = localStorage.getItem('dialysis_font_mode');
       if (saved === 'senior') {
@@ -577,7 +853,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       }
     }
 
-    // 2. LINE In-App 瀏覽器 / LIFF 支援
+    // 3. LINE In-App 瀏覽器 / LIFF 支援
     function initLiff() {
       if (typeof liff !== 'undefined') {
         const liffId = window.__LIFF_ID__;
@@ -601,20 +877,26 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       }
     }
 
-    // 3. AI 智能統整長輩月箋
+    // 4. AI 智能統整長輩月箋
     function renderAISummary() {
       const confirmed = reports.filter(r => r.status === 'confirmed');
       const nickname = currentFamily ? (currentFamily.display_name || '長輩') : '長輩';
 
       if (confirmed.length === 0) {
+        document.getElementById('letterDate').innerText = '狀態：資料庫已重置清空';
         document.getElementById('letterContent').innerHTML = `
-          ${nickname}您好，這是一份專為您準備的健康照護存摺。只要在 LINE 傳送檢驗單照片並確認，AI 將為您手札記錄每一次的平安走勢！
+          ${nickname}您好，目前的歷史檢驗數據已全數乾淨清空。<br>
+          請由您提供各月份的完整檢驗資料，我們將為長輩進行專業的透析指標深度分析與建立健康存摺！
+        `;
+        document.getElementById('letterTags').innerHTML = `
+          <span class="tag-chip tag-bamboo">🌿 等待新資料建檔中</span>
+          <span class="tag-chip tag-amber">✍ 支援各月份檢驗報告輸入</span>
         `;
         return;
       }
 
       const latest = confirmed[0];
-      document.getElementById('letterDate').innerText = `採檢日期：${latest.test_date}`;
+      document.getElementById('letterDate').innerText = `最新採檢日期：${latest.test_date}`;
 
       const good = [];
       const warn = [];
@@ -655,7 +937,55 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       tagContainer.innerHTML = tagsHtml;
     }
 
-    // 4. Chart.js 文人走勢圖
+    // 5. 最新一期核心指標快報 (Overview Tab)
+    function renderLatestQuickBox() {
+      const confirmed = reports.filter(r => r.status === 'confirmed');
+      const box = document.getElementById('latestQuickBox');
+      const grid = document.getElementById('quickShelfGrid');
+
+      if (confirmed.length === 0) {
+        box.style.display = 'none';
+        return;
+      }
+
+      const latest = confirmed[0];
+      box.style.display = 'block';
+      document.getElementById('quickReportDate').innerText = `採檢日期：${latest.test_date}`;
+
+      let pillsHtml = '';
+      const mainKeys = ['potassium', 'phosphorus', 'hemoglobin', 'calcium', 'albumin', 'kt_v'];
+      mainKeys.forEach(k => {
+        const def = metricDefs[k];
+        const val = latest[k];
+        let valClass = 'v-bamboo';
+        if (val === null || val === undefined) {
+          valClass = 'v-none';
+        } else if (val < def.low) {
+          valClass = 'v-amber';
+        } else if (val > def.high) {
+          valClass = 'v-cinnabar';
+        }
+
+        pillsHtml += `
+          <div class="metric-pill">
+            <div class="pill-header">
+              <span>${def.name}</span>
+              <span class="pill-unit">${def.unit}</span>
+            </div>
+            <div class="pill-row">
+              <span class="pill-num ${valClass}">${val !== null && val !== undefined ? val : '--'}</span>
+            </div>
+            <div class="pill-target">
+              目標: ${def.low === 0 ? '< ' + def.high : def.low + ' ~ ' + def.high}
+            </div>
+          </div>
+        `;
+      });
+
+      grid.innerHTML = pillsHtml;
+    }
+
+    // 6. Chart.js 文人走勢圖
     function switchMetric(key) {
       currentTab = key;
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -670,6 +1000,35 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
       if (chartInstance) {
         chartInstance.destroy();
+      }
+
+      if (confirmed.length === 0) {
+        chartInstance = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: ['尚無資料'],
+            datasets: [{
+              label: '等待新檢驗數據入冊',
+              data: [0],
+              borderColor: '#8E9892',
+              borderDash: [5, 5],
+              pointRadius: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                labels: { font: { family: 'Noto Sans TC', size: isSenior ? 14 : 12 } }
+              }
+            },
+            scales: {
+              y: { beginAtZero: true, max: 10 }
+            }
+          }
+        });
+        return;
       }
 
       const labels = confirmed.map(r => r.test_date || '未知');
@@ -755,18 +1114,76 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       });
     }
 
-    // 5. 歷次報告手帖清單
-    function renderReportsList() {
-      const container = document.getElementById('reportsListContainer');
-      if (reports.length === 0) {
-        container.innerHTML = `<div class="empty-card"><h3>目前尚無檢驗手札存摺</h3><p style="margin-top: 8px;">在 LINE 傳送檢驗單並確認後，紀錄將整齊收錄於此。</p></div>`;
+    // 7. 歷次檢驗詳實歷程獨立分頁 (History Tab)
+    function toggleFolder(cardId) {
+      const card = document.getElementById(cardId);
+      if (card) {
+        card.classList.toggle('open');
+      }
+    }
+
+    function toggleAllFolders(shouldOpen) {
+      document.querySelectorAll('.folder-card').forEach(c => {
+        if (shouldOpen) {
+          c.classList.add('open');
+        } else {
+          c.classList.remove('open');
+        }
+      });
+    }
+
+    function filterByMonth(dateStr) {
+      selectedMonthFilter = dateStr;
+      document.querySelectorAll('.history-pill').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+      renderReportsList();
+    }
+
+    function renderHistoryControls() {
+      const confirmed = reports;
+      const controls = document.getElementById('historyControls');
+      const pillsContainer = document.getElementById('historyFilterPills');
+
+      if (confirmed.length === 0) {
+        controls.style.display = 'none';
         return;
       }
 
-      let html = '';
-      reports.forEach(r => {
-        let metricsHtml = '';
-        for (const [key, def] of Object.entries(metricDefs)) {
+      controls.style.display = 'flex';
+      let pillsHtml = `<button class="history-pill ${selectedMonthFilter === 'all' ? 'active' : ''}" onclick="filterByMonth('all')">全部期數 (${confirmed.length})</button>`;
+      
+      confirmed.forEach((r, idx) => {
+        const isLatest = idx === 0 ? ' (最新)' : '';
+        const activeClass = selectedMonthFilter === r.test_date ? 'active' : '';
+        pillsHtml += `<button class="history-pill ${activeClass}" onclick="filterByMonth('${r.test_date}')">${r.test_date}${isLatest}</button>`;
+      });
+
+      pillsContainer.innerHTML = pillsHtml;
+    }
+
+    function renderMatrixTable() {
+      const box = document.getElementById('historyMatrixBox');
+      const table = document.getElementById('matrixTable');
+      const confirmed = reports.filter(r => r.status === 'confirmed');
+
+      if (confirmed.length <= 1) {
+        box.style.display = 'none';
+        return;
+      }
+
+      box.style.display = 'block';
+      let dates = confirmed.map(r => r.test_date);
+
+      let thead = `<thead><tr><th>檢驗項目</th><th>建議安全區間</th>`;
+      dates.forEach(d => {
+        thead += `<th>${d}</th>`;
+      });
+      thead += `</tr></thead>`;
+
+      let tbody = `<tbody>`;
+      for (const [key, def] of Object.entries(metricDefs)) {
+        tbody += `<tr><td>${def.name}</td><td>${def.low === 0 ? '< ' + def.high : def.low + ' ~ ' + def.high} ${def.unit}</td>`;
+        confirmed.forEach(r => {
           const val = r[key];
           let valClass = 'v-bamboo';
           if (val === null || val === undefined) {
@@ -775,6 +1192,56 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             valClass = 'v-amber';
           } else if (val > def.high) {
             valClass = 'v-cinnabar';
+          }
+          tbody += `<td class="${valClass}" style="font-weight: 700;">${val !== null && val !== undefined ? val : '--'}</td>`;
+        });
+        tbody += `</tr>`;
+      }
+      tbody += `</tbody>`;
+
+      table.innerHTML = thead + tbody;
+    }
+
+    function renderReportsList() {
+      const container = document.getElementById('reportsListContainer');
+      document.getElementById('reportCountBadge').innerText = reports.length;
+
+      if (reports.length === 0) {
+        container.innerHTML = `
+          <div class="empty-card">
+            <h3>目前尚無檢驗手札存摺</h3>
+            <p style="margin-top: 8px;">歷史數據已全部重置清空。請由您提供各月份檢驗報告，我們將立即為長輩建立各期資料！</p>
+          </div>
+        `;
+        return;
+      }
+
+      const filtered = selectedMonthFilter === 'all' 
+        ? reports 
+        : reports.filter(r => r.test_date === selectedMonthFilter);
+
+      let html = '';
+      filtered.forEach((r, idx) => {
+        const folderId = `folder_${r.id || idx}`;
+        const isFirst = (idx === 0 && selectedMonthFilter === 'all');
+
+        let metricsHtml = '';
+        let goodCount = 0;
+        let warnCount = 0;
+
+        for (const [key, def] of Object.entries(metricDefs)) {
+          const val = r[key];
+          let valClass = 'v-bamboo';
+          if (val === null || val === undefined) {
+            valClass = 'v-none';
+          } else if (val < def.low) {
+            valClass = 'v-amber';
+            warnCount++;
+          } else if (val > def.high) {
+            valClass = 'v-cinnabar';
+            warnCount++;
+          } else {
+            goodCount++;
           }
 
           metricsHtml += `
@@ -794,22 +1261,27 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         }
 
         html += `
-          <div class="report-sheet">
-            <div class="sheet-meta">
-              <div>
-                <span class="sheet-date">📅 採檢日期：${r.test_date}</span>
-                <span style="font-size: 0.88rem; color: var(--text-muted); margin-left: 10px;">
-                  對象：${currentFamily ? currentFamily.display_name : '長輩'}
-                </span>
-              </div>
-              <div>
+          <div class="folder-card ${isFirst ? 'open' : ''}" id="${folderId}">
+            <div class="folder-header" onclick="toggleFolder('${folderId}')">
+              <div class="folder-title-wrap">
+                <span class="folder-date">📅 採檢日期：${r.test_date}</span>
                 <span class="stamp-badge ${r.status === 'confirmed' ? 'stamp-good' : 'stamp-draft'}">
-                  ${r.status === 'confirmed' ? '✓ 已入冊生效' : '⏳ 待核對草稿'}
+                  ${r.status === 'confirmed' ? '✓ 已入冊' : '⏳ 草稿'}
                 </span>
+                <div class="folder-summary-tags">
+                  <span class="tag-chip tag-bamboo" style="padding: 2px 8px; font-size: 0.76rem;">${goodCount} 項標準</span>
+                  ${warnCount > 0 ? `<span class="tag-chip tag-amber" style="padding: 2px 8px; font-size: 0.76rem;">${warnCount} 項留心</span>` : ''}
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 0.82rem; color: var(--text-dim);">點擊展開/收合</span>
+                <span class="folder-toggle-icon">▼</span>
               </div>
             </div>
-            <div class="metrics-shelf">
-              ${metricsHtml}
+            <div class="folder-body">
+              <div class="metrics-shelf">
+                ${metricsHtml}
+              </div>
             </div>
           </div>
         `;
@@ -825,6 +1297,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       initSeniorMode();
       initLiff();
       renderAISummary();
+      renderLatestQuickBox();
+      renderHistoryControls();
+      renderMatrixTable();
       renderReportsList();
       initChart('all');
     }
