@@ -1,7 +1,7 @@
 """後台數據統整與互動式視覺化健康中心 Web 路由。
 
 文學文青質感 (Literary & Warm Paper Aesthetic) + 長輩護眼大字版 (Senior-Friendly UI/UX)。
-支援主分頁導航（總覽手札 vs 歷次檢驗詳實歷程）、月份篩選與折疊卡片，解決頁面過長問題。
+支援主分頁導航（總覽手札 vs 歷次活力成績單）、完整 30+ 檢驗全項目展開與跨月對比總表。
 """
 
 from __future__ import annotations
@@ -95,6 +95,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     }
     body.senior-mode .folder-header {
       padding: 20px 22px;
+    }
+    body.senior-mode .detail-table {
+      font-size: 1.05rem;
+    }
+    body.senior-mode .detail-table th, body.senior-mode .detail-table td {
+      padding: 12px 14px;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -267,7 +273,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     }
 
     /* ========================================================
-       1. AI 智能長輩月候箋（溫暖如家書）
+       1. AI 智能生活月箋
        ======================================================== */
     .letter-card {
       background: #FFFFFF;
@@ -362,7 +368,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     }
 
     /* ========================================================
-       2. 互動式跨月走勢折線圖（文人山水藍調）
+       2. 互動式跨月走勢折線圖
        ======================================================== */
     .chart-box {
       background: #FFFFFF;
@@ -433,7 +439,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     }
 
     /* ========================================================
-       3. 獨立分頁：歷次檢驗成績詳實歷程 (Tab 2)
+       3. 獨立分頁：歷次活力成績單 (Tab 2)
        ======================================================== */
     .history-controls {
       display: flex;
@@ -556,6 +562,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .matrix-tab-pills {
+      display: flex;
+      gap: 6px;
     }
     .matrix-table {
       width: 100%;
@@ -580,6 +592,83 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     }
     .matrix-table tr:hover {
       background: #FDFBF8;
+    }
+
+    /* 完整 30+ 檢驗全項目明細區塊 */
+    .full-metrics-drawer {
+      display: none;
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px dashed var(--card-border);
+    }
+    .full-metrics-drawer.open {
+      display: block;
+      animation: fadeIn 0.22s ease-out;
+    }
+    .btn-toggle-metrics {
+      width: 100%;
+      margin-top: 16px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      background: #FFFFFF;
+      border: 1.5px dashed var(--c-bamboo);
+      color: var(--c-bamboo);
+      font-weight: 700;
+      font-size: 0.92rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+    .btn-toggle-metrics:hover {
+      background: var(--c-bamboo-bg);
+    }
+    .group-title {
+      font-family: 'Noto Serif TC', serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--c-bamboo);
+      margin: 16px 0 8px 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .group-title:first-child {
+      margin-top: 4px;
+    }
+    .detail-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      margin-bottom: 14px;
+      background: #FFFFFF;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+    }
+    .detail-table th, .detail-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--card-border);
+      text-align: left;
+    }
+    .detail-table th {
+      background: var(--bg-subtle);
+      color: var(--text-ink);
+      font-weight: 700;
+      font-size: 0.84rem;
+    }
+    .doctor-notes-box {
+      margin-top: 14px;
+      background: var(--c-amber-bg);
+      border: 1px solid rgba(184, 93, 25, 0.25);
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-size: 0.92rem;
+      color: var(--text-ink);
+      line-height: 1.68;
+      white-space: pre-line;
     }
 
     /* 雅緻指標格子 */
@@ -706,7 +795,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
          視圖 1：【元氣手札與走勢】 (Overview Tab)
          ========================================== -->
     <main id="viewOverview" class="view-panel active">
-      <!-- 1. AI 智能長輩月候箋 -->
+      <!-- 1. AI 智能生活月箋 -->
       <div class="letter-card" id="aiLetterCard">
         <div class="letter-header">
           <span class="letter-seal">📜 元氣手札 · 生活月箋</span>
@@ -754,7 +843,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     </main>
 
     <!-- ==========================================
-         視圖 2：【歷次檢驗詳實歷程】 (History Tab)
+         視圖 2：【歷次活力成績單】 (History Tab)
          ========================================== -->
     <main id="viewHistory" class="view-panel">
       <!-- 篩選列與期數書籤 -->
@@ -771,15 +860,21 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       <!-- 跨月對比橫向速查表 -->
       <div class="matrix-box" id="historyMatrixBox" style="display: none;">
         <div class="matrix-title">
-          <span>📊 跨月核心數值橫向速查</span>
-          <span style="font-size: 0.82rem; color: var(--text-muted); font-weight: normal;">向右滑動可查閱更多月份</span>
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <span>📊 跨月數值橫向速查</span>
+            <div class="matrix-tab-pills">
+              <button class="tab-btn active" id="btnMatrixCore" onclick="switchMatrixMode('core')">核心生活指標 (9)</button>
+              <button class="tab-btn" id="btnMatrixFull" onclick="switchMatrixMode('full')">完整 26+ 全項明細</button>
+            </div>
+          </div>
+          <span style="font-size: 0.82rem; color: var(--text-muted); font-weight: normal;">向右滑動可查閱更多月份 ➔</span>
         </div>
         <table class="matrix-table" id="matrixTable">
           <!-- 動態生成跨月對照表格 -->
         </table>
       </div>
 
-      <!-- 手風琴式月份折疊卡片清單（杜絕頁面過長） -->
+      <!-- 手風琴式月份折疊卡片清單（杜絕頁面過長，內含 30+ 項全明細切換） -->
       <div id="reportsListContainer">
         <!-- 動態載入報告 -->
       </div>
@@ -795,22 +890,97 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     const families = window.__FAMILIES_DATA__ || [];
     const currentFamily = window.__CURRENT_FAMILY__ || (families[0] || null);
 
-    // 指標定義與醫學目標
+    // 1. 核心指標定義（9大項）
     const metricDefs = {
-      potassium: { name: '鉀 (K)', unit: 'mEq/L', low: 3.5, high: 5.0, color: '#245A44' },
+      potassium: { name: '鉀 (K)', unit: 'mEq/L', low: 3.5, high: 4.9, color: '#245A44' },
       phosphorus: { name: '磷 (P)', unit: 'mg/dL', low: 3.5, high: 5.5, color: '#B85D19' },
-      hemoglobin: { name: '血紅素 (Hb)', unit: 'g/dL', low: 10.0, high: 11.5, color: '#A32A2A' },
-      calcium: { name: '鈣 (Ca)', unit: 'mg/dL', low: 8.4, high: 10.2, color: '#2D5873' },
+      hemoglobin: { name: '血紅素 (Hb)', unit: 'g/dL', low: 11.0, high: 12.0, color: '#A32A2A' },
+      calcium: { name: '鈣 (Ca)', unit: 'mg/dL', low: 8.4, high: 10.5, color: '#2D5873' },
       albumin: { name: '白蛋白 (Alb)', unit: 'g/dL', low: 3.5, high: 99, color: '#6A5ACD' },
-      sodium: { name: '鈉 (Na)', unit: 'mEq/L', low: 135, high: 145, color: '#319795' },
-      creatinine: { name: '肌酸酐 (Cr)', unit: 'mg/dL', low: 0, high: 99, color: '#64748B' },
+      sodium: { name: '鈉 (Na)', unit: 'mmol/L', low: 135, high: 145, color: '#319795' },
+      creatinine: { name: '肌酸酐 (Cr)', unit: 'mg/dL', low: 8, high: 12, color: '#64748B' },
       kt_v: { name: '透析效率 (Kt/V)', unit: '', low: 1.2, high: 99, color: '#245A44' },
-      ipth: { name: '副甲狀腺素 (iPTH)', unit: 'pg/mL', low: 150, high: 600, color: '#D97706' }
+      ipth: { name: '副甲狀腺素 (iPTH)', unit: 'pg/mL', low: 150, high: 300, color: '#D97706' }
     };
+
+    // 2. 完整 30+ 檢驗醫學分類指標
+    const allMetricGroups = [
+      {
+        group: '⚡ 電解質、腎功能與透析效率',
+        items: [
+          { key: 'potassium', name: '鉀 (K)', unit: 'mEq/L', low: 3.5, high: 4.9 },
+          { key: 'phosphorus', name: '磷 (P)', unit: 'mg/dL', low: 3.5, high: 5.5 },
+          { key: 'calcium', name: '鈣 (Ca)', unit: 'mg/dL', low: 8.4, high: 10.5 },
+          { key: 'sodium', name: '鈉 (Na)', unit: 'mmol/L', low: 135, high: 145 },
+          { key: 'albumin', name: '白蛋白 (Alb)', unit: 'g/dL', low: 3.5, high: 99 },
+          { key: 'bun', name: '血尿素氮 (BUN 前)', unit: 'mg/dL', low: 60, high: 100 },
+          { key: 'bun_post', name: '血尿素氮 (BUN 後)', unit: 'mg/dL', low: 0, high: 99, isExtra: true },
+          { key: 'creatinine', name: '肌酸酐 (Cr)', unit: 'mg/dL', low: 8, high: 12 },
+          { key: 'urr', name: '尿素清除率 (URR)', unit: '%', low: 65, high: 99, isExtra: true },
+          { key: 'kt_v', name: '透析效率 (Kt/V)', unit: '', low: 1.2, high: 99 },
+          { key: 'ipth', name: '副甲狀腺素 (iPTH)', unit: 'pg/mL', low: 150, high: 300 }
+        ]
+      },
+      {
+        group: '🩸 血液常規與血球計數 (CBC)',
+        items: [
+          { key: 'wbc', name: '白血球計數 (WBC)', unit: '*10^3/uL', low: 4.0, high: 10.0, isExtra: true },
+          { key: 'hemoglobin', name: '血紅素 (Hb)', unit: 'g/dL', low: 11.0, high: 12.0 },
+          { key: 'hct', name: '血球容積比 (Hct)', unit: '%', low: 33.0, high: 36.0, isExtra: true },
+          { key: 'platelet', name: '血小板 (Platelet)', unit: '*10^3/uL', low: 130, high: 400, isExtra: true }
+        ]
+      },
+      {
+        group: '🧬 肝功能、代謝與營養指標',
+        items: [
+          { key: 'sgot', name: 'SGOT (肝功能/AST)', unit: 'IU/L', low: 5, high: 34, isExtra: true },
+          { key: 'sgpt', name: 'SGPT (肝功能/ALT)', unit: 'IU/L', low: 5, high: 40, isExtra: true },
+          { key: 'alk_p', name: '鹼性磷酸酶 (ALK-P)', unit: 'IU/L', low: 38, high: 126, isExtra: true },
+          { key: 'uric_acid', name: '尿酸 (Uric Acid)', unit: 'mg/dL', low: 0, high: 7.5, isExtra: true },
+          { key: 'glucose', name: '飯前血糖 (AC Sugar)', unit: 'mg/dL', low: 70, high: 100, isExtra: true },
+          { key: 'globulin', name: '球蛋白 (Globulin)', unit: 'g/dL', low: 2.6, high: 3.6, isExtra: true },
+          { key: 'cholesterol', name: '總膽固醇 (Cholesterol)', unit: 'mg/dL', low: 0, high: 250, isExtra: true },
+          { key: 'tg', name: '三酸甘油脂 (TG)', unit: 'mg/dL', low: 0, high: 200, isExtra: true }
+        ]
+      },
+      {
+        group: '🧲 鐵質代謝與造血儲備',
+        items: [
+          { key: 'ferritin', name: '鐵蛋白 (Ferritin)', unit: 'ng/mL', low: 300, high: 500, isExtra: true },
+          { key: 'iron', name: '血清鐵 (Iron)', unit: 'ug/dL', low: 65, high: 157, isExtra: true },
+          { key: 'tibc', name: '總鐵結合能 (TIBC)', unit: 'ug/dL', low: 200, high: 360, isExtra: true },
+          { key: 'transferrin_sat', name: '運鐵蛋白飽和度', unit: '%', low: 15, high: 30, isExtra: true },
+          { key: 'anti_hbs', name: 'B肝表面抗體 (Anti-HBs)', unit: 'mIU/mL', low: 10, high: 9999, isExtra: true }
+        ]
+      }
+    ];
 
     let chartInstance = null;
     let currentTab = 'all';
     let selectedMonthFilter = 'all';
+    let currentMatrixMode = 'core'; // 'core' | 'full'
+
+    function getItemValue(report, item) {
+      if (!report) return undefined;
+      if (item.isExtra) {
+        return (report.extra && report.extra[item.key] !== undefined) ? report.extra[item.key] : undefined;
+      }
+      return report[item.key];
+    }
+
+    function getItemStatusClass(val, item) {
+      if (val === null || val === undefined) return 'v-none';
+      if (val < item.low) return 'v-amber';
+      if (val > item.high) return 'v-cinnabar';
+      return 'v-bamboo';
+    }
+
+    function getItemStatusBadge(val, item) {
+      if (val === null || val === undefined) return '<span style="color:var(--text-dim);">未驗</span>';
+      if (val < item.low) return '<span class="stamp-badge" style="color:var(--c-amber);background:var(--c-amber-bg);">偏低</span>';
+      if (val > item.high) return '<span class="stamp-badge" style="color:var(--c-cinnabar);background:var(--c-cinnabar-bg);">偏高</span>';
+      return '<span class="stamp-badge" style="color:var(--c-bamboo);background:var(--c-bamboo-bg);">標準</span>';
+    }
 
     // 1. 主視圖標籤頁切換
     function switchMainTab(tabName) {
@@ -1131,11 +1301,29 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       });
     }
 
+    function toggleFullMetrics(drawerId) {
+      const drawer = document.getElementById(drawerId);
+      const icon = document.getElementById('icon_' + drawerId);
+      if (drawer) {
+        const isOpen = drawer.classList.toggle('open');
+        if (icon) {
+          icon.innerText = isOpen ? '▲' : '▼';
+        }
+      }
+    }
+
     function filterByMonth(dateStr) {
       selectedMonthFilter = dateStr;
       document.querySelectorAll('.history-pill').forEach(btn => btn.classList.remove('active'));
       event.target.classList.add('active');
       renderReportsList();
+    }
+
+    function switchMatrixMode(mode) {
+      currentMatrixMode = mode;
+      document.getElementById('btnMatrixCore').classList.toggle('active', mode === 'core');
+      document.getElementById('btnMatrixFull').classList.toggle('active', mode === 'full');
+      renderMatrixTable();
     }
 
     function renderHistoryControls() {
@@ -1180,24 +1368,35 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       thead += `</tr></thead>`;
 
       let tbody = `<tbody>`;
-      for (const [key, def] of Object.entries(metricDefs)) {
-        tbody += `<tr><td>${def.name}</td><td>${def.low === 0 ? '< ' + def.high : def.low + ' ~ ' + def.high} ${def.unit}</td>`;
-        confirmed.forEach(r => {
-          const val = r[key];
-          let valClass = 'v-bamboo';
-          if (val === null || val === undefined) {
-            valClass = 'v-none';
-          } else if (val < def.low) {
-            valClass = 'v-amber';
-          } else if (val > def.high) {
-            valClass = 'v-cinnabar';
-          }
-          tbody += `<td class="${valClass}" style="font-weight: 700;">${val !== null && val !== undefined ? val : '--'}</td>`;
-        });
-        tbody += `</tr>`;
-      }
-      tbody += `</tbody>`;
 
+      if (currentMatrixMode === 'core') {
+        for (const [key, def] of Object.entries(metricDefs)) {
+          tbody += `<tr><td>${def.name}</td><td>${def.low === 0 ? '< ' + def.high : def.low + ' ~ ' + def.high} ${def.unit}</td>`;
+          confirmed.forEach(r => {
+            const val = r[key];
+            let valClass = getItemStatusClass(val, def);
+            tbody += `<td class="${valClass}" style="font-weight: 700;">${val !== null && val !== undefined ? val : '--'}</td>`;
+          });
+          tbody += `</tr>`;
+        }
+      } else {
+        // 完整全項跨月總表
+        allMetricGroups.forEach(grp => {
+          tbody += `<tr style="background:var(--bg-subtle);"><td colspan="${dates.length + 2}" style="font-weight:700; color:var(--c-bamboo); text-align:left; padding:8px 12px;">${grp.group}</td></tr>`;
+          grp.items.forEach(item => {
+            const targetText = item.low === 0 ? '< ' + item.high : item.low + ' ~ ' + item.high;
+            tbody += `<tr><td>${item.name}</td><td>${targetText} ${item.unit}</td>`;
+            confirmed.forEach(r => {
+              const val = getItemValue(r, item);
+              let valClass = getItemStatusClass(val, item);
+              tbody += `<td class="${valClass}" style="font-weight: 700;">${val !== null && val !== undefined ? val : '--'}</td>`;
+            });
+            tbody += `</tr>`;
+          });
+        });
+      }
+
+      tbody += `</tbody>`;
       table.innerHTML = thead + tbody;
     }
 
@@ -1224,26 +1423,20 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         const folderId = `folder_${r.id || idx}`;
         const isFirst = (idx === 0 && selectedMonthFilter === 'all');
 
-        let metricsHtml = '';
+        let coreMetricsHtml = '';
         let goodCount = 0;
         let warnCount = 0;
 
+        // 核心生活指標卡片
         for (const [key, def] of Object.entries(metricDefs)) {
           const val = r[key];
-          let valClass = 'v-bamboo';
-          if (val === null || val === undefined) {
-            valClass = 'v-none';
-          } else if (val < def.low) {
-            valClass = 'v-amber';
-            warnCount++;
-          } else if (val > def.high) {
-            valClass = 'v-cinnabar';
-            warnCount++;
-          } else {
-            goodCount++;
+          let valClass = getItemStatusClass(val, def);
+          if (val !== null && val !== undefined) {
+            if (val < def.low || val > def.high) warnCount++;
+            else goodCount++;
           }
 
-          metricsHtml += `
+          coreMetricsHtml += `
             <div class="metric-pill">
               <div class="pill-header">
                 <span>${def.name}</span>
@@ -1255,6 +1448,60 @@ DASHBOARD_HTML = """<!DOCTYPE html>
               <div class="pill-target">
                 目標: ${def.low === 0 ? '< ' + def.high : def.low + ' ~ ' + def.high}
               </div>
+            </div>
+          `;
+        }
+
+        // 完整 30+ 項全明細表格渲染
+        let fullTablesHtml = '';
+        allMetricGroups.forEach(grp => {
+          let rowsHtml = '';
+          grp.items.forEach(item => {
+            const val = getItemValue(r, item);
+            const valClass = getItemStatusClass(val, item);
+            const badge = getItemStatusBadge(val, item);
+            const targetText = item.low === 0 ? '< ' + item.high : item.low + ' ~ ' + item.high;
+
+            rowsHtml += `
+              <tr>
+                <td style="font-weight:600;">${item.name}</td>
+                <td class="${valClass}" style="font-weight:700; font-size:1.02rem;">${val !== null && val !== undefined ? val : '--'}</td>
+                <td style="color:var(--text-dim);">${item.unit}</td>
+                <td style="color:var(--text-muted);">${targetText}</td>
+                <td>${badge}</td>
+              </tr>
+            `;
+          });
+
+          fullTablesHtml += `
+            <div class="group-title">${grp.group}</div>
+            <table class="detail-table">
+              <thead>
+                <tr>
+                  <th>項目名稱</th>
+                  <th>檢驗數值</th>
+                  <th>單位</th>
+                  <th>參考基準</th>
+                  <th>狀態</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+              </tbody>
+            </table>
+          `;
+        });
+
+        // 醫師/衛教師生活指導小箋
+        let notesHtml = '';
+        const notes = (r.extra && r.extra.notes) ? r.extra.notes : null;
+        if (notes) {
+          notesHtml = `
+            <div class="doctor-notes-box">
+              <strong style="color:var(--c-amber); display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+                💡 醫護生活指導小箋：
+              </strong>
+              ${notes}
             </div>
           `;
         }
@@ -1278,8 +1525,24 @@ DASHBOARD_HTML = """<!DOCTYPE html>
               </div>
             </div>
             <div class="folder-body">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <span style="font-size:0.9rem; font-weight:700; color:var(--text-ink);">🌿 核心活力生活指標</span>
+                <span style="font-size:0.8rem; color:var(--text-dim);">日常飲食與生活首要參考</span>
+              </div>
               <div class="metrics-shelf">
-                ${metricsHtml}
+                ${coreMetricsHtml}
+              </div>
+
+              ${notesHtml}
+
+              <!-- 30+ 檢驗全項目切換開關 -->
+              <button class="btn-toggle-metrics" onclick="toggleFullMetrics('full_${folderId}')">
+                <span>🔍 查看本期完整 30+ 檢驗全項目明細 (含血球/肝功能/鐵質代謝)</span>
+                <span id="icon_full_${folderId}">▼</span>
+              </button>
+
+              <div class="full-metrics-drawer" id="full_${folderId}">
+                ${fullTablesHtml}
               </div>
             </div>
           </div>
@@ -1310,7 +1573,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
 @router.get("/dashboard", response_class=HTMLResponse)
 async def get_dashboard(family_id: str | None = Query(None)) -> HTMLResponse:
-    """長輩照護手札 ｜ 腎好伴 檢驗數據與走勢中心。"""
+    """生活元氣存摺 ｜ 日常活力好日札。"""
     c = await db()
     settings = get_settings()
 
