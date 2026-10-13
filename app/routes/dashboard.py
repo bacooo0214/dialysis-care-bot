@@ -24,8 +24,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>長輩照護手札 ｜ 腎好伴 檢驗數據與走勢中心</title>
-  <meta name="description" content="溫潤素雅的人文健康手札，提供血液透析檢驗數據可視化、互動走勢圖與 AI 智能照護統整。">
+  <title>生活元氣存摺 ｜ 日常活力好日札</title>
+  <meta name="description" content="溫潤素雅的人文生活存摺，提供活力指標走勢、生活節奏小叮嚀與元氣智能統整。">
   <!-- 字型：思源宋體（標題典雅）與思源黑體（易讀清朗） -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -678,9 +678,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   <div class="container">
     <header>
       <div>
-        <div class="header-sub">🌿 腎好伴 · 家庭照護健康箋</div>
-        <h1 id="pageTitle">長輩健康與檢驗走勢</h1>
-        <p class="subtitle" id="pageSubtitle">為長輩與家人量身訂製的溫潤健康存摺</p>
+        <div class="header-sub">🌱 元氣充電所 · 悠哉生活好日札</div>
+        <h1 id="pageTitle">生活元氣記帳本</h1>
+        <p class="subtitle" id="pageSubtitle">把每天的活力存進來，悠悠哉哉過好日</p>
       </div>
       <div class="header-actions">
         <!-- 核心功能：一鍵切換長輩護眼大字版 -->
@@ -695,25 +695,25 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <!-- 頂級主標籤導航欄 (主視圖切換) -->
     <nav class="main-nav-bar" role="tablist">
       <button class="main-tab-btn active" id="tabNavOverview" onclick="switchMainTab('overview')" role="tab">
-        🍂 照護手札與走勢
+        🍂 元氣手札與走勢
       </button>
       <button class="main-tab-btn" id="tabNavHistory" onclick="switchMainTab('history')" role="tab">
-        📋 歷次檢驗詳實歷程 <span class="tab-badge" id="reportCountBadge">0</span>
+        📋 歷次活力成績單 <span class="tab-badge" id="reportCountBadge">0</span>
       </button>
     </nav>
 
     <!-- ==========================================
-         視圖 1：【照護手札與走勢】 (Overview Tab)
+         視圖 1：【元氣手札與走勢】 (Overview Tab)
          ========================================== -->
     <main id="viewOverview" class="view-panel active">
       <!-- 1. AI 智能長輩月候箋 -->
       <div class="letter-card" id="aiLetterCard">
         <div class="letter-header">
-          <span class="letter-seal">📜 照護手札 · 智能月箋</span>
+          <span class="letter-seal">📜 元氣手札 · 生活月箋</span>
           <span class="letter-date" id="letterDate">最新紀錄：等待建立</span>
         </div>
         <div class="letter-content" id="letterContent">
-          正在準備長輩的健康月箋...
+          正在準備今日的生活月箋...
         </div>
         <div class="letter-tags" id="letterTags">
           <!-- 標籤區 -->
@@ -723,7 +723,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       <!-- 2. 最新一期核心數值快覽 -->
       <div class="quick-shelf-box" id="latestQuickBox" style="display: none;">
         <div class="quick-shelf-title">
-          <span>🌿 最近一期檢驗核心快報</span>
+          <span>🌿 最近一期生活活力快報</span>
           <span id="quickReportDate" style="font-size: 0.88rem; color: var(--text-muted); font-family: 'Noto Sans TC';"></span>
         </div>
         <div class="metrics-shelf" id="quickShelfGrid">
@@ -735,8 +735,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       <div class="chart-box">
         <div class="chart-top-bar">
           <div class="chart-heading">
-            <h2>📈 歷史跨月指標走勢</h2>
-            <p>綠色柔和區間代表醫師建議的「安全目標範圍」</p>
+            <h2>📈 跨月活力指數走勢</h2>
+            <p>綠色柔和區間代表最輕鬆舒適的「活力舒適圈」</p>
           </div>
           <div class="chart-tabs">
             <button class="tab-btn active" onclick="switchMetric('all')">四大指標</button>
@@ -786,7 +786,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     </main>
 
     <div class="liff-footer">
-      <p>— 陪伴長輩平穩透析，願一家人日日安好 —</p>
+      <p>— 陪伴每一天神采奕奕，願全家日子過得舒心悠哉 —</p>
     </div>
   </div>
 
@@ -877,26 +877,25 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       }
     }
 
-    // 4. AI 智能統整長輩月箋
+    // 4. AI 智能統整生活月箋
     function renderAISummary() {
       const confirmed = reports.filter(r => r.status === 'confirmed');
-      const nickname = currentFamily ? (currentFamily.display_name || '長輩') : '長輩';
 
       if (confirmed.length === 0) {
-        document.getElementById('letterDate').innerText = '狀態：資料庫已重置清空';
+        document.getElementById('letterDate').innerText = '狀態：生活筆記全新開始 ☀️';
         document.getElementById('letterContent').innerHTML = `
-          ${nickname}您好，目前的歷史檢驗數據已全數乾淨清空。<br>
-          請由您提供各月份的完整檢驗資料，我們將為長輩進行專業的透析指標深度分析與建立健康存摺！
+          哩厚！今天過得悠哉嗎？這本生活元氣手札已經整理得像一張全新畫紙囉。<br>
+          隨時把手邊各期生活打卡的小紙條發過來，我們立即幫您把元氣活力指數畫成清楚好讀的走勢圖，一起輕鬆過好日子！
         `;
         document.getElementById('letterTags').innerHTML = `
-          <span class="tag-chip tag-bamboo">🌿 等待新資料建檔中</span>
-          <span class="tag-chip tag-amber">✍ 支援各月份檢驗報告輸入</span>
+          <span class="tag-chip tag-bamboo">🌱 元氣充電待命中</span>
+          <span class="tag-chip tag-amber">✍ 隨時歡迎各期活力打卡</span>
         `;
         return;
       }
 
       const latest = confirmed[0];
-      document.getElementById('letterDate').innerText = `最新採檢日期：${latest.test_date}`;
+      document.getElementById('letterDate').innerText = `最新紀錄日期：${latest.test_date}`;
 
       const good = [];
       const warn = [];
@@ -905,23 +904,23 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         const val = latest[k];
         if (val !== null && val !== undefined) {
           if (val < def.low) {
-            warn.push({ name: def.name, val, reason: `稍低於目標 (${val} < ${def.low})` });
+            warn.push({ name: def.name, val, reason: `稍低於舒適圈 (${val} < ${def.low})` });
           } else if (val > def.high) {
-            warn.push({ name: def.name, val, reason: `稍高於目標 (${val} > ${def.high})` });
+            warn.push({ name: def.name, val, reason: `稍高於舒適圈 (${val} > ${def.high})` });
           } else {
             good.push({ name: def.name, val });
           }
         }
       }
 
-      let text = `親愛的<strong>${nickname}</strong>與家人，在 <strong>${latest.test_date}</strong> 的檢查中：`;
+      let text = `哈囉！在 <strong>${latest.test_date}</strong> 的這期活力打卡中：`;
       if (good.length > 0) {
-        text += `<br>🌿 其中 <strong>${good.map(g => g.name).join('、')}</strong> 維持在十分理想的安全區間，感謝長輩與家人長期的細心照顧，請為自己的努力喝采！`;
+        text += `<br>✨ 其中 <strong>${good.map(g => g.name).join('、')}</strong> 表現得像模範生一樣穩定漂亮！給自己拍拍手，這份生活節奏抓得真好！`;
       }
       if (warn.length > 0) {
-        text += `<br><br>💡 目前有微調空間的項目為：<strong>${warn.map(w => `${w.name} (${w.reason})`).join('、')}</strong>。<br>日常飲食溫馨小叮嚀：蔬菜切碎用大量滾水汆燙 3-5 分鐘以溫和去鉀、用餐按醫囑搭配降磷劑。慢慢調養即可，我們一直陪伴在身邊。`;
+        text += `<br><br>🍵 稍微多給一點關心的小夥伴是：<strong>${warn.map(w => `${w.name} (${w.reason})`).join('、')}</strong>。<br>生活小妙招：蔬菜煮之前先用滾水川燙 3-5 分鐘瀝乾再吃、吃好料時把降磷好朋友帶在身邊配著。慢慢調配就很舒服，每天都開開心心！`;
       } else {
-        text += `<br>🎉 所有核心數值皆全數符合標準目標，狀態非常平穩安心，繼續保持現在的生活步調喔！`;
+        text += `<br>🎉 哇！所有各項指標全都在最佳甜蜜點，精神力滿分，繼續享受舒舒服服的生活好節奏！`;
       }
 
       document.getElementById('letterContent').innerHTML = text;
@@ -929,10 +928,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       const tagContainer = document.getElementById('letterTags');
       let tagsHtml = '';
       good.forEach(g => {
-        tagsHtml += `<span class="tag-chip tag-bamboo">✓ ${g.name} ${g.val} 安好</span>`;
+        tagsHtml += `<span class="tag-chip tag-bamboo">✓ ${g.name} ${g.val} 棒棒的</span>`;
       });
       warn.forEach(w => {
-        tagsHtml += `<span class="tag-chip tag-amber">⚠ ${w.name} ${w.val} 留心</span>`;
+        tagsHtml += `<span class="tag-chip tag-amber">🍵 ${w.name} ${w.val} 多關心</span>`;
       });
       tagContainer.innerHTML = tagsHtml;
     }
@@ -1209,8 +1208,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       if (reports.length === 0) {
         container.innerHTML = `
           <div class="empty-card">
-            <h3>目前尚無檢驗手札存摺</h3>
-            <p style="margin-top: 8px;">歷史數據已全部重置清空。請由您提供各月份檢驗報告，我們將立即為長輩建立各期資料！</p>
+            <h3>目前生活存摺全新待命 ☀️</h3>
+            <p style="margin-top: 8px;">歷史紀錄已乾淨重置。隨時傳送各月份的活力成績單，我們將立即為您建立清楚好讀的各期存摺！</p>
           </div>
         `;
         return;
@@ -1291,9 +1290,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     }
 
     function init() {
-      if (currentFamily && currentFamily.display_name) {
-        document.getElementById('pageTitle').innerText = `${currentFamily.display_name} 健康月候手札`;
-      }
+      document.getElementById('pageTitle').innerText = '生活元氣記帳本';
       initSeniorMode();
       initLiff();
       renderAISummary();
