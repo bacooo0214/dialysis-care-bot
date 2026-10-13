@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.config import get_settings
 from app.metrics import (
     CORE_METRICS,
     LEVEL_COLOR,
@@ -360,7 +361,7 @@ def build_report_overview_flex(
 
 def build_charts_menu_flex(patient_nickname: str = "長輩", family_id: str | None = None) -> dict[str, Any]:
     """圖表選單卡片。"""
-    dash_url = f"https://dialysis-care-bot.onrender.com/dashboard?family_id={family_id}" if family_id else "https://dialysis-care-bot.onrender.com/dashboard"
+    dash_url = get_settings().get_dashboard_url(family_id)
 
     buttons = [
         ("綜合儀表板", "summary", "#4F46E5"),
@@ -377,10 +378,10 @@ def build_charts_menu_flex(patient_nickname: str = "長輩", family_id: str | No
             "type": "button",
             "style": "primary",
             "height": "sm",
-            "color": "#10B981",
+            "color": "#245A44",
             "action": {
                 "type": "uri",
-                "label": "🌐 開啟線上互動數據中心 (推薦)",
+                "label": "🌿 開啟線上照護手札 (推薦)",
                 "uri": dash_url,
             },
             "margin": "xs",
@@ -443,14 +444,14 @@ def build_charts_menu_flex(patient_nickname: str = "長輩", family_id: str | No
 
 def build_main_quick_reply(family_id: str | None = None) -> dict[str, Any]:
     """主快捷鍵 Quick Reply 清單（浮動在對話視窗下方的實體按鈕）。"""
-    dash_url = f"https://dialysis-care-bot.onrender.com/dashboard?family_id={family_id}" if family_id else "https://dialysis-care-bot.onrender.com/dashboard"
+    dash_url = get_settings().get_dashboard_url(family_id)
     return {
         "items": [
             {
                 "type": "action",
                 "action": {
                     "type": "uri",
-                    "label": "📊 線上數據中心",
+                    "label": "🌿 照護手札中心",
                     "uri": dash_url,
                 },
             },

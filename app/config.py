@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     # Google Sheets（JSON 字串或檔案路徑）
     google_service_account_json: str | None = None
 
+    # LINE LIFF 設定（讓網頁在 LINE 內部瀏覽器開啟）
+    liff_id: str | None = None
+
     # Cloud Scheduler 呼叫 /cron/* 用
     cron_secret: str = "change-me"
 
@@ -43,6 +46,13 @@ class Settings(BaseSettings):
     def tz(self) -> ZoneInfo:
         """回傳時區物件。"""
         return ZoneInfo(self.timezone)
+
+    def get_dashboard_url(self, family_id: str | None = None) -> str:
+        """取得數據中心 URL（優先使用 LINE 內部 LIFF 網址）。"""
+        base_domain = "https://dialysis-care-bot.onrender.com"
+        if self.liff_id:
+            return f"https://liff.line.me/{self.liff_id}?family_id={family_id}" if family_id else f"https://liff.line.me/{self.liff_id}"
+        return f"{base_domain}/dashboard?family_id={family_id}" if family_id else f"{base_domain}/dashboard"
 
 
 @lru_cache

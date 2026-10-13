@@ -358,10 +358,10 @@ async def handle_postback(
             confirmed, results, patient_nickname, advice_id=saved_advice["id"]
         )
 
-        dash_url = f"https://dialysis-care-bot.onrender.com/dashboard?family_id={family_id}"
+        dash_url = get_settings().get_dashboard_url(family_id)
         advice_msg = {
             "type": "text",
-            "text": f"💡 照護建議：\n\n{ai_res.text}\n\n📱 查看線上完整互動趨勢與數據：\n{dash_url}",
+            "text": f"💡 照護建議：\n\n{ai_res.text}\n\n🌿 查看線上完整照護手札與走勢：\n{dash_url}",
             "quickReply": build_main_quick_reply(family_id),
         }
 
@@ -674,8 +674,8 @@ async def handle_text_message(
         rules=care_rules,
     )
 
-    dash_url = f"https://dialysis-care-bot.onrender.com/dashboard?family_id={family_id}"
-    full_reply = f"{ai_reply}\n\n📊 查看完整互動趨勢與報告：\n{dash_url}"
+    dash_url = get_settings().get_dashboard_url(family_id)
+    full_reply = f"{ai_reply}\n\n🌿 查看線上完整照護手札與走勢：\n{dash_url}"
 
     if reply_token:
         await line().reply(
