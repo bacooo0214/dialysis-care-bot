@@ -50,8 +50,11 @@ from app.db import (
 from app.flex_messages import (
     build_changelog_flex,
     build_charts_menu_flex,
+    build_clinic_memo_flex,
+    build_critical_alert_flex,
     build_daily_quick_reply,
     build_disclaimer_flex,
+    build_food_screening_flex,
     build_main_quick_reply,
     build_ocr_carousel,
     build_ocr_confirm_bubble,
@@ -66,11 +69,12 @@ from app.metrics import (
     classify_bp,
     classify_water,
     classify_weight_gain,
+    detect_critical_alerts,
     evaluate_report,
     get_metrics,
     worst_level,
 )
-from app.services import advice, charts, ocr, sheets, storage
+from app.services import advice, charts, food_analyzer, ocr, sheets, storage
 
 log = logging.getLogger(__name__)
 
@@ -126,6 +130,49 @@ async def resolve_context(event: dict[str, Any]) -> tuple[dict[str, Any], dict[s
     # 確保是成員
     await ensure_membership(family["id"], user["id"])
     return user, family, context_id
+
+
+def check_bot_mentioned(event: dict[str, Any], text: str) -> tuple[bool, str]:
+    """判斷在家庭群組中是否明確呼叫/提及機器人。
+    
+    支援：
+    1. LINE 原生 Mention (isSelf: True)
+    2. 文字開頭或包含 @腎好伴、@小乖孫、@小幫手、@機器人、@bot 等
+    3. 文字以機器人稱謂呼叫開頭（如「腎好伴，...」、「小乖孫，...」）
+    4. 明確提問前綴開頭（如「請問：」、「請教：」、「問：」）
+    
+    回傳:
+        (is_called, clean_query)
+    """
+    msg = event.get("message", {})
+
+    # 1. LINE 官方原生 Mention 檢查
+    mentionees = msg.get("mention", {}).get("mentionees", [])
+    for m in mentionees:
+        if m.get("isSelf") is True:
+            # 清除訊息中前置的 @文字
+            clean = re.sub(r"^@\S+\s*", "", text).strip()
+            return True, clean or text
+
+    # 2. 文字開頭包含常見 Bot 稱謂、@ 標籤或提問前綴
+    prefix_pattern = re.compile(
+        r"^(?:@(?:腎好伴|小乖孫|雲端小乖孫|小幫手|機器人|bot|Bot)\s*|"
+        r"(?:腎好伴|小乖孫|雲端小乖孫|小幫手)[，,：:\s]+|"
+        r"(?:請問|請教|問)[，,：:\s]+)",
+        re.IGNORECASE,
+    )
+    m = prefix_pattern.match(text)
+    if m:
+        clean = text[m.end():].strip()
+        return True, clean or text
+
+    # 3. 訊息中包含 @機器人 (即使位於句中)
+    inline_at = re.search(r"@(?:腎好伴|小乖孫|雲端小乖孫|小幫手|機器人|bot|Bot)", text, re.IGNORECASE)
+    if inline_at:
+        clean = re.sub(r"@(?:腎好伴|小乖孫|雲端小乖孫|小幫手|機器人|bot|Bot)", "", text, flags=re.IGNORECASE).strip()
+        return True, clean or text
+
+    return False, text
 
 
 # ---------------------------------------------------------------------
@@ -230,15 +277,48 @@ async def handle_image_message(
         return
 
     if not ocr_result.is_lab_report or not ocr_result.reports:
-        # 檢查是否為刻意上傳流程
-        state = await get_state(user_id, context_id)
-        if state and state.get("state") == "awaiting_report":
-            await clear_state(user_id, context_id)
+        # 智慧分流：嘗試外食與餐點拍照 AI 瞬間快篩
+        patient_nickname = family.get("patient_nickname") or "長輩"
+        food_res = await food_analyzer.analyze_food(image_bytes, mime_type=mime_type)
+        if food_res.is_food:
+            food_flex = build_food_screening_flex(food_res, patient_nickname)
             if reply_token:
                 await line().reply(
                     reply_token,
-                    [{"type": "text", "text": "這張照片看起來不太像血液透析檢驗報告喔！請對準檢驗表格再拍一張試試看 📋"}],
+                    [
+                        {
+                            "type": "text",
+                            "text": f"🍽️ 收到{patient_nickname}的餐點照片！已為您進行「透析飲食 AI 瞬間快篩」：",
+                        },
+                        food_flex,
+                    ],
                 )
+            return
+
+        # 既不是報告亦非食物
+        state = await get_state(user_id, context_id)
+        is_awaiting = state and state.get("state") == "awaiting_report"
+        if is_awaiting:
+            await clear_state(user_id, context_id)
+
+        # 若在群組或多人群聊中，且非等待上傳報告狀態，保持靜默不打擾家人互傳生活照
+        source = event.get("source", {})
+        is_group = bool(source.get("groupId") or source.get("roomId"))
+        if is_group and not is_awaiting:
+            log.info("群組中上傳非報告/非食物之日常照片，靜默忽略不插嘴")
+            return
+
+        if reply_token:
+            await line().reply(
+                reply_token,
+                [
+                    {
+                        "type": "text",
+                        "text": "這張照片看起來不太像檢驗報告或餐點料理喔！\n📷 拍「檢驗單」可自動產生成績單與趨勢圖\n🍽️ 拍「今日餐餚」可即刻為長輩快篩高鉀高磷風險與降雷吃法！",
+                        "quickReply": build_main_quick_reply(family["id"]),
+                    }
+                ],
+            )
         return
 
     # 將辨識到的每筆報告存入 draft
@@ -330,6 +410,9 @@ async def handle_postback(
         # 3. 紅綠燈評估
         results = evaluate_report(confirmed, previous, family.get("metric_overrides"))
 
+        # 3.1 臨床關鍵危急值 (Critical Alerts) 偵測
+        critical_alerts = detect_critical_alerts(confirmed)
+
         # 4. 生成 AI 建議
         findings = advice.build_findings(results)
         rules = await list_rules(family_id)
@@ -348,7 +431,7 @@ async def handle_postback(
         if family.get("sheet_id"):
             asyncio.create_task(sheets.sync_report_to_sheet(family["sheet_id"], confirmed))
 
-        # 6. 回傳成績單與 AI 建議卡片
+        # 6. 回傳成績單、危急警戒 (若有) 與 AI 建議卡片
         intro_msg = {
             "type": "text",
             "text": f"🎉 {patient_nickname} 的檢驗成績單分析完成！\n已為您對齊臨床透析安全標準，請參考下方紅綠燈評估：",
@@ -365,13 +448,30 @@ async def handle_postback(
             "quickReply": build_main_quick_reply(family_id),
         }
 
-        if reply_token:
-            await line().reply(reply_token, [intro_msg, overview_flex, advice_msg])
+        reply_messages = [intro_msg, overview_flex]
+        if critical_alerts:
+            critical_flex = build_critical_alert_flex(critical_alerts, patient_nickname, family_id)
+            reply_messages.append(critical_flex)
+        reply_messages.append(advice_msg)
 
-        # 7. 異常警報：若有紅燈，主動在群組 @ 標記家屬
+        if reply_token:
+            await line().reply(reply_token, reply_messages)
+
+        # 7. 異常警報：若有紅燈或危急值，主動在群組 @ 標記家屬
         red_findings = [f for f in findings if f.level == Level.RED]
-        if red_findings and family.get("line_group_id"):
+        if (red_findings or critical_alerts) and family.get("line_group_id"):
             asyncio.create_task(send_alert_mention(family, red_findings, patient_nickname))
+
+    elif action == "clinic_memo":
+        # 產生門診 30 秒就醫小抄
+        await line().show_loading(user_id, seconds=20)
+        history = await list_confirmed_reports(family_id, limit=3)
+        daily_rec = await get_daily(family_id, date.today())
+        rules = await list_rules(family_id)
+        memo = await advice.generate_clinic_memo(patient_nickname, history, daily_rec, rules)
+        memo_flex = build_clinic_memo_flex(memo, patient_nickname, family_id)
+        if reply_token:
+            await line().reply(reply_token, [memo_flex])
 
     elif action == "edit_report_prompt":
         report_id = params.get("id")
@@ -512,7 +612,11 @@ async def handle_text_message(
                 return
 
     # 2. 喝水指令：「喝水 200」、「+100」、「喝了 150cc」
-    water_match = re.search(r"(?:喝水|\+)\s*(\d{1,4})", text)
+    # 嚴格匹配完整字句，避免群組一般聊天「+1」報名被誤當喝水
+    water_match = re.match(r"^(?:喝水|喝了|飲水)\s*(\d{1,4})(?:\s*(?:ml|cc|毫升))?$", text, re.IGNORECASE)
+    if not water_match:
+        # 支援單純的「+100」、「+ 200」，排除「+1」
+        water_match = re.match(r"^\+\s*([2-9]\d{1,3}|1\d{2,3})(?:\s*(?:ml|cc|毫升))?$", text)
     if water_match:
         ml = int(water_match.group(1))
         total_ml = await add_water(family_id, today, ml, user["id"])
@@ -606,6 +710,31 @@ async def handle_text_message(
         return
 
     # 7. 查詢指令
+    if text in ("門診小抄", "就醫小抄", "看診小抄", "診間小抄", "問診小抄", "小抄", "醫生問診", "醫生諮詢"):
+        await line().show_loading(user_id, seconds=20)
+        history = await list_confirmed_reports(family_id, limit=3)
+        daily_rec = await get_daily(family_id, today)
+        rules = await list_rules(family_id)
+        memo = await advice.generate_clinic_memo(patient_nickname, history, daily_rec, rules)
+        memo_flex = build_clinic_memo_flex(memo, patient_nickname, family_id)
+        if reply_token:
+            await line().reply(reply_token, [memo_flex])
+        return
+
+    if text in ("外食快篩", "飲食快篩", "能吃嗎", "怎麼吃", "飲食指南", "拍食物"):
+        if reply_token:
+            await line().reply(
+                reply_token,
+                [
+                    {
+                        "type": "text",
+                        "text": f"🍽️ 請直接拍下{patient_nickname}今天準備吃的飯菜、外食便當或飲料 📷\n系統將自動分析高鉀、高磷與鹽分水分風險，並提供洗腎長輩專屬的『降雷吃法 3 招』！",
+                        "quickReply": build_main_quick_reply(family_id),
+                    }
+                ],
+            )
+        return
+
     if text in ("看報告", "成績單", "最新報告"):
         history = await list_confirmed_reports(family_id, limit=2)
         if not history:
@@ -659,7 +788,21 @@ async def handle_text_message(
             await line().reply(reply_token, [build_changelog_flex()])
         return
 
-    # 8. 自然語言智能對話（AI 照護專員）：結合真實最新數據與衛教知識直接統整回答！
+    # 8. 自然語言智能對話（AI 照護專員）
+    # 判斷是否為群組 / 多人聊天室
+    source = event.get("source", {})
+    is_group = bool(source.get("groupId") or source.get("roomId"))
+
+    if is_group:
+        # 群組/多人聊天室模式：只有明確呼叫、@提及或以提問開頭時才回覆，群組常態閒聊保持靜默！
+        is_called, query_text = check_bot_mentioned(event, text)
+        if not is_called:
+            log.info("群組常態閒聊靜默忽略 (未提及機器人): %s", text)
+            return
+    else:
+        # 1:1 個人私聊模式：直接視為與 AI 照護專員提問交流
+        query_text = text
+
     await line().show_loading(user_id, seconds=20)
     history = await list_confirmed_reports(family_id, limit=2)
     latest_rep = history[-1] if history else None
@@ -667,7 +810,7 @@ async def handle_text_message(
     care_rules = await list_rules(family_id)
 
     ai_reply = await advice.answer_patient_query(
-        query=text,
+        query=query_text,
         patient_nickname=patient_nickname,
         latest_report=latest_rep,
         daily_record=daily_rec,
@@ -717,13 +860,22 @@ async def record_weight(
         sign = "+" if diff > 0 else ""
         resp += f"與乾體重 ({dry_weight} kg) 相比：{sign}{diff} kg ({pct:.1f}%)\n"
         if lv == Level.GREEN:
-            resp += "🟢 體重增加在 3% 以內，水份控制極佳！"
+            resp += "🟢 體重增加在安全 3% 以內，水份控制極佳，繼續保持！"
         elif lv == Level.YELLOW:
-            resp += "🟡 體重稍微偏多，今天要注意飲食與喝水量喔！"
+            resp += "🟡 體重稍微偏多（達 3~5%），今天務必節制喝水，喝湯吃粥要暫停喔！"
         else:
-            resp += "🔴 體重增加超過 5%，心臟負擔較大，若躺下會喘請即時聯絡護理師！"
+            resp += (
+                "🔴 🚨【高水分滯留緊急警戒】\n"
+                f"體重增加已達危險門檻（超過乾體重 5%，+{diff} kg）！\n\n"
+                "⚠️ 透析死線提醒：水分過度滯留會沉重加重心臟負荷，隨時可能引發急性肺水腫！\n"
+                "👉 緊急應變守則：\n"
+                "1. 立即停止喝水、喝茶、喝湯、稀飯與高含水水果。\n"
+                "2. 休息或睡眠時請採『半坐臥』姿態，切勿完全平躺。\n"
+                "3. 極度口渴時以少量薄冰塊含在口中潤喉。\n"
+                "4. 若長輩感覺胸悶、喘促、呼吸急促，請即刻前往急診或聯絡透析室安排處置！"
+            )
     else:
-        resp += "💡 尚未設定基準乾體重，可輸入「設定乾體重 55」以啟用體重增幅警示功能。"
+        resp += "💡 尚未設定基準乾體重，可輸入「設定乾體重 55」以啟用透析水分增幅警示功能。"
 
     if family.get("sheet_id"):
         asyncio.create_task(sync_daily_background(family_id, rec_date, family["sheet_id"]))

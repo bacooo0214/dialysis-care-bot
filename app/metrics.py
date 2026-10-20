@@ -253,3 +253,137 @@ def _num(v: Any) -> float | None:
         return float(v)
     except (TypeError, ValueError):
         return None
+
+
+@dataclass
+class CriticalAlert:
+    """臨床重大危急值警報項目。"""
+
+    metric_key: str
+    name: str
+    code: str
+    value: float
+    unit: str
+    severity: str  # "danger" (極度致命危險) 或 "warning" (高度警戒)
+    reason: str
+    action: str
+
+
+def detect_critical_alerts(report: dict[str, Any]) -> list[CriticalAlert]:
+    """檢測透析臨床關鍵危急值 (Critical Values)。
+    
+    依據 KDOQI / KDIGO 指南：
+    - 血鉀 (K) >= 5.5 (特別是 >= 6.0 致命性心律不整) 或 < 3.2
+    - 血紅素 (Hb) < 8.0 (重度貧血、缺氧與心臟負荷急增)
+    - 血鈣 (Ca) > 11.5 或 < 7.0 (急性電解質危象)
+    - 血磷 (P) > 7.0 (血管急遽鈣化危險期)
+    """
+    alerts: list[CriticalAlert] = []
+
+    # 1. 鉀離子 (Potassium)
+    k_val = _num(report.get("potassium"))
+    if k_val is not None:
+        if k_val >= 6.0:
+            alerts.append(
+                CriticalAlert(
+                    metric_key="potassium",
+                    name="血鉀",
+                    code="K",
+                    value=k_val,
+                    unit="mEq/L",
+                    severity="danger",
+                    reason="血鉀高達致命危險區間 (≥6.0 mEq/L)，極易誘發心室顫動甚至心搏驟停！",
+                    action="請立即聯絡透析室值班醫師或前往急診處置！嚴格禁吃任何高鉀水果、菜湯、高湯或中草藥！",
+                )
+            )
+        elif k_val >= 5.5:
+            alerts.append(
+                CriticalAlert(
+                    metric_key="potassium",
+                    name="血鉀",
+                    code="K",
+                    value=k_val,
+                    unit="mEq/L",
+                    severity="danger",
+                    reason="血鉀偏高 (≥5.5 mEq/L)，已達臨床警報紅線，心肌傳導受阻風險激增！",
+                    action="請盡速回報透析室護理師或醫師；今日嚴格禁食生菜沙拉、香蕉、番茄、奇異果與肉湯！",
+                )
+            )
+        elif k_val < 3.2:
+            alerts.append(
+                CriticalAlert(
+                    metric_key="potassium",
+                    name="血鉀",
+                    code="K",
+                    value=k_val,
+                    unit="mEq/L",
+                    severity="danger",
+                    reason="血鉀過低 (<3.2 mEq/L)，易引發嚴重肢體無力、呼吸麻痺或惡性心律不整！",
+                    action="請盡快告知主治醫師，評估是否調整透析液鉀濃度或口服補鉀處方。",
+                )
+            )
+
+    # 2. 血紅素 (Hemoglobin)
+    hb_val = _num(report.get("hemoglobin"))
+    if hb_val is not None and hb_val < 8.0:
+        alerts.append(
+            CriticalAlert(
+                metric_key="hemoglobin",
+                name="血紅素",
+                code="Hb",
+                value=hb_val,
+                unit="g/dL",
+                severity="danger",
+                reason="血紅素低於 8.0 g/dL，屬重度貧血，心臟代償負荷急遽攀升，易引起心衰竭與缺氧喘促！",
+                action="請提早於下次透析向醫師反應，確認是否需要安排加驗鐵質飽和度或調整造血針劑量。",
+            )
+        )
+
+    # 3. 鈣離子 (Calcium)
+    ca_val = _num(report.get("calcium"))
+    if ca_val is not None:
+        if ca_val > 11.5:
+            alerts.append(
+                CriticalAlert(
+                    metric_key="calcium",
+                    name="血鈣",
+                    code="Ca",
+                    value=ca_val,
+                    unit="mg/dL",
+                    severity="danger",
+                    reason="血鈣嚴重超標 (>11.5 mg/dL)，易引起嗜睡、意識混亂、胃腸痙攣及心血管毒性！",
+                    action="請立即告知主治醫師，通常需暫停含鈣降磷劑與活性維生素 D。",
+                )
+            )
+        elif ca_val < 7.0:
+            alerts.append(
+                CriticalAlert(
+                    metric_key="calcium",
+                    name="血鈣",
+                    code="Ca",
+                    value=ca_val,
+                    unit="mg/dL",
+                    severity="danger",
+                    reason="血鈣嚴重低下 (<7.0 mg/dL)，易引發手指發麻、抽搐痙攣與心肌收縮異常！",
+                    action="請盡速向透析室反應，評估注射補充葡萄糖酸鈣或調整透析液鈣濃度。",
+                )
+            )
+
+    # 4. 磷離子 (Phosphorus)
+    p_val = _num(report.get("phosphorus"))
+    if p_val is not None and p_val > 7.0:
+        alerts.append(
+            CriticalAlert(
+                metric_key="phosphorus",
+                name="血磷",
+                code="P",
+                value=p_val,
+                unit="mg/dL",
+                severity="warning",
+                reason="血磷過高 (>7.0 mg/dL)，會劇烈加速全身動脈血管鈣化並誘發頑固皮膚劇癢！",
+                action="務必餐餐隨第一口飯咬碎磷結合劑，嚴格禁止香腸肉丸等加工品與濃肉汁骨湯！",
+            )
+        )
+
+    return alerts
+

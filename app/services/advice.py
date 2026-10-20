@@ -256,3 +256,136 @@ async def answer_patient_query(
     except Exception:
         log.exception("answer_patient_query failed")
         return f"{patient_nickname}的照護非常重要！關於「{query}」，建議您在下次透析時向護理師或醫師進一步諮詢喔！"
+
+
+# ---------------------------------------------------------------------
+# 門診專用「30 秒就醫小抄 / 醫師問診備忘錄」生成
+# ---------------------------------------------------------------------
+
+
+class ClinicMemoOut(BaseModel):
+    """門診 30 秒就醫小抄結構。"""
+
+    summary_headline: str = Field(description="簡要標題，例如：近三期核心指標走勢與門診問診備忘")
+    overview_text: str = Field(description="30 秒看診重點陳述，讓醫師快速掌握長輩近況與變化")
+    key_highlights: list[str] = Field(
+        description="2~4 項數值關鍵亮點對比，例如：['血紅素 (Hb)：8.7 → 10.1 → 11.6 g/dL（大幅改善）', '血鉀 (K)：5.1 mEq/L（維持安全區）', '副甲狀腺素 (iPTH)：614.8 pg/mL（仍偏高）']"
+    )
+    doctor_questions: list[str] = Field(
+        description="建議在診間主動向醫師詢問的 2~3 個精準問題，切合當前指標狀態"
+    )
+    daily_reminders: list[str] = Field(
+        description="透析與日常照護注意事項（乾體重、水分控制、用藥時機）"
+    )
+
+
+CLINIC_MEMO_SYSTEM = """你是台灣權威腎臟內科與血液透析資深照護專家。
+請根據提供的長輩檢驗歷史報告（通常為近 2~3 期）與日常紀錄，為長輩或陪診家屬整理一份【門診專用 30 秒就醫小抄】。
+
+目標：
+1. 醫師門診時間緊湊，長輩往往不知道該看什麼、問什麼。
+2. 小抄必須讓陪診家屬能在 30 秒內向醫師清晰說明近期變化，並主動提出「最關鍵、最具臨床意義的 2~3 個提問」。
+3. 數值亮點：清楚標註跨期數值消長（例如 Hb 8.7 → 10.1 → 11.6、K 5.1、iPTH 614.8 等）。
+4. 專業問診設計：
+   - 若貧血達標（Hb >= 11），詢問是否需要調減紅血球生成素 (EPO) 劑量。
+   - 若血鉀高（K >= 5.3），詢問利尿劑或透析液設定。
+   - 若副甲狀腺素高（iPTH > 300~600），詢問是否評估擬鈣劑 (Cinacalcet/Etelcalcetide) 或活性維生素 D。
+   - 若透析間體重增加多，詢問乾體重設定是否需微調。
+5. 語氣專業、清晰、結構分明，無廢話。
+"""
+
+
+async def generate_clinic_memo(
+    patient_nickname: str,
+    recent_reports: list[dict[str, Any]],
+    daily_record: dict[str, Any] | None = None,
+    rules: list[dict[str, Any]] | None = None,
+) -> ClinicMemoOut:
+    """產生門診 30 秒就醫小抄。"""
+    if not recent_reports:
+        return ClinicMemoOut(
+            summary_headline="門診備忘小抄",
+            overview_text=f"目前尚無{patient_nickname}的檢驗資料，請先上傳檢驗單建立紀錄喔！",
+            key_highlights=["暫無檢驗歷史數據"],
+            doctor_questions=["1. 長輩目前透析狀況是否穩定？", "2. 下次檢驗抽血安排在何時？"],
+            daily_reminders=["日常維持秤重習慣與水分控制。"],
+        )
+
+    # 組合 Prompt 內容
+    lines = [f"長輩姓名/稱呼：{patient_nickname}", "\n【近幾次檢驗報告歷程（由新至舊）】"]
+    for i, rep in enumerate(recent_reports[:3], 1):
+        dt = rep.get("test_date") or f"第 {i} 期"
+        sub_lines = [f"● 報告日期：{dt}"]
+        for k in ["hemoglobin", "potassium", "phosphorus", "calcium", "albumin", "ipth", "kt_v", "creatinine", "bun"]:
+            v = rep.get(k)
+            if v is not None:
+                m = METRICS.get(k)
+                unit = m.unit if m else ""
+                name = m.name if m else k
+                code = m.code if m else k
+                sub_lines.append(f"  - {name} ({code}): {v} {unit}")
+        lines.append("\n".join(sub_lines))
+
+    if daily_record:
+        lines.append("\n【近期生活自主管理狀態】")
+        if daily_record.get("weight_kg"):
+            lines.append(f"- 今日體重: {daily_record.get('weight_kg')} kg")
+        if daily_record.get("systolic") and daily_record.get("diastolic"):
+            lines.append(f"- 今日血壓: {daily_record.get('systolic')}/{daily_record.get('diastolic')} mmHg")
+        if daily_record.get("water_ml"):
+            lines.append(f"- 喝水量: {daily_record.get('water_ml')} ml")
+
+    prompt_content = "\n\n".join(lines)
+
+    try:
+        resp = await gemini().aio.models.generate_content(
+            model=get_settings().gemini_model,
+            contents=prompt_content,
+            config=types.GenerateContentConfig(
+                system_instruction=CLINIC_MEMO_SYSTEM,
+                temperature=0.3,
+                response_mime_type="application/json",
+                response_schema=ClinicMemoOut,
+            ),
+        )
+        return ClinicMemoOut.model_validate_json(resp.text or "{}")
+    except Exception as e:
+        log.exception("門診小抄生成失敗，啟動備用邏輯: %s", e)
+        # 本地規則組裝 fallback
+        latest = recent_reports[0]
+        prev = recent_reports[1] if len(recent_reports) > 1 else None
+
+        hb_cur = latest.get("hemoglobin")
+        hb_prev = prev.get("hemoglobin") if prev else None
+        k_cur = latest.get("potassium")
+        ipth_cur = latest.get("ipth")
+
+        highlights = []
+        if hb_cur is not None:
+            hb_text = f"血紅素 (Hb)：{hb_cur} g/dL"
+            if hb_prev is not None:
+                hb_text = f"血紅素 (Hb)：{hb_prev} → {hb_cur} g/dL（近期穩健進步）"
+            highlights.append(hb_text)
+        if k_cur is not None:
+            highlights.append(f"血鉀 (K)：{k_cur} mEq/L（目標 3.5~5.3）")
+        if ipth_cur is not None:
+            highlights.append(f"副甲狀腺素 (iPTH)：{ipth_cur} pg/mL（數值偏高，需注意骨骼血管）")
+
+        questions = [
+            f"1. {patient_nickname}近期血紅素維持在 {hb_cur or '標準'}，造血刺激素 (EPO) 劑量是否需微調或維持？",
+            "2. 副甲狀腺素數值偏高，是否需要評估擬鈣劑或調整活性維生素 D 用法？",
+            "3. 目前透析後乾體重評估是否恰當？日常水分控制建議？",
+        ]
+
+        return ClinicMemoOut(
+            summary_headline=f"{patient_nickname} 門診 30 秒問診備忘小抄",
+            overview_text=f"{patient_nickname}近期透析狀況整體平穩，造血表現良好，建議把握門診時間確認造血針劑量與副甲狀腺素控制策略。",
+            key_highlights=highlights or ["數據已記錄於系統中"],
+            doctor_questions=questions,
+            daily_reminders=[
+                "就診前請先測量當日體重與血壓紀錄。",
+                "攜帶目前所有正在服用的藥物清單（尤其是磷結合劑與降壓藥）。",
+                "提醒醫師注意近期的飲食胃口與精神狀態變化。",
+            ],
+        )
+

@@ -467,6 +467,15 @@ def build_main_quick_reply(family_id: str | None = None) -> dict[str, Any]:
                 "type": "action",
                 "action": {
                     "type": "postback",
+                    "label": "📝 門診小抄",
+                    "data": "action=clinic_memo",
+                    "displayText": "我想看門診就醫小抄",
+                },
+            },
+            {
+                "type": "action",
+                "action": {
+                    "type": "postback",
                     "label": "📈 趨勢折線圖",
                     "data": "action=view_charts_menu",
                     "displayText": "我想看數據趨勢圖",
@@ -696,3 +705,610 @@ def build_changelog_flex() -> dict[str, Any]:
             },
         },
     }
+
+
+# ---------------------------------------------------------------------
+# 1. 門診專用「30 秒就醫小抄 / 醫師問診備忘錄」Flex 卡片
+# ---------------------------------------------------------------------
+
+
+def build_clinic_memo_flex(memo: Any, patient_nickname: str, family_id: str | None = None) -> dict[str, Any]:
+    """生成門診 30 秒就醫小抄 Flex 卡片。"""
+    headline = getattr(memo, "summary_headline", "") or memo.get("summary_headline", "門診 30 秒問診備忘小抄")
+    overview = getattr(memo, "overview_text", "") or memo.get("overview_text", "")
+    highlights = getattr(memo, "key_highlights", []) or memo.get("key_highlights", [])
+    questions = getattr(memo, "doctor_questions", []) or memo.get("doctor_questions", [])
+    reminders = getattr(memo, "daily_reminders", []) or memo.get("daily_reminders", [])
+
+    dash_url = get_settings().get_dashboard_url(family_id)
+
+    # 亮點清單
+    highlight_boxes = []
+    for h in highlights[:4]:
+        highlight_boxes.append(
+            {
+                "type": "box",
+                "layout": "horizontal",
+                "contents": [
+                    {"type": "text", "text": "✦", "size": "sm", "color": "#245A44", "flex": 1},
+                    {"type": "text", "text": str(h), "size": "sm", "color": "#2C302E", "wrap": True, "flex": 12},
+                ],
+                "margin": "sm",
+            }
+        )
+
+    # 提問清單
+    question_boxes = []
+    for q in questions[:3]:
+        question_boxes.append(
+            {
+                "type": "box",
+                "layout": "horizontal",
+                "contents": [
+                    {"type": "text", "text": "💬", "size": "sm", "flex": 1},
+                    {"type": "text", "text": str(q), "size": "sm", "color": "#1F2937", "wrap": True, "weight": "bold", "flex": 12},
+                ],
+                "margin": "sm",
+            }
+        )
+
+    # 備忘叮嚀
+    reminder_boxes = []
+    for r in reminders[:2]:
+        reminder_boxes.append(
+            {
+                "type": "text",
+                "text": f"• {r}",
+                "size": "xs",
+                "color": "#5F6A64",
+                "wrap": True,
+                "margin": "xs",
+            }
+        )
+
+    return {
+        "type": "flex",
+        "altText": f"📝 {patient_nickname} 的門診 30 秒就醫小抄",
+        "contents": {
+            "type": "bubble",
+            "size": "giga",
+            "header": {
+                "type": "box",
+                "layout": "vertical",
+                "backgroundColor": "#FBF9F5",
+                "contents": [
+                    {
+                        "type": "box",
+                        "layout": "horizontal",
+                        "contents": [
+                            {
+                                "type": "text",
+                                "text": "📝 門診 30 秒就醫備忘小抄",
+                                "weight": "bold",
+                                "size": "lg",
+                                "color": "#245A44",
+                                "flex": 8,
+                            },
+                            {
+                                "type": "text",
+                                "text": "醫師快速瀏覽",
+                                "size": "xs",
+                                "color": "#B85D19",
+                                "align": "end",
+                                "flex": 4,
+                                "weight": "bold",
+                            },
+                        ],
+                    },
+                    {
+                        "type": "text",
+                        "text": f"{patient_nickname} · 跨期檢驗走勢與診間提問",
+                        "size": "xs",
+                        "color": "#5F6A64",
+                        "margin": "xs",
+                    },
+                ],
+                "paddingAll": "lg",
+                "paddingBottom": "sm",
+            },
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "backgroundColor": "#FFFFFF",
+                "contents": [
+                    # 概述框
+                    {
+                        "type": "box",
+                        "layout": "vertical",
+                        "backgroundColor": "#EDF5F0",
+                        "cornerRadius": "md",
+                        "paddingAll": "md",
+                        "contents": [
+                            {
+                                "type": "text",
+                                "text": "【30 秒狀態簡報】",
+                                "weight": "bold",
+                                "size": "xs",
+                                "color": "#245A44",
+                            },
+                            {
+                                "type": "text",
+                                "text": overview,
+                                "size": "sm",
+                                "color": "#2C302E",
+                                "wrap": True,
+                                "margin": "xs",
+                            },
+                        ],
+                    },
+                    # 亮點區
+                    {
+                        "type": "box",
+                        "layout": "vertical",
+                        "margin": "lg",
+                        "contents": [
+                            {
+                                "type": "text",
+                                "text": "📈 近期關鍵數據走勢",
+                                "weight": "bold",
+                                "size": "sm",
+                                "color": "#2C302E",
+                            },
+                            {"type": "separator", "margin": "xs", "color": "#E6DFD3"},
+                            {"type": "box", "layout": "vertical", "contents": highlight_boxes, "margin": "sm"},
+                        ],
+                    },
+                    # 問診問題區
+                    {
+                        "type": "box",
+                        "layout": "vertical",
+                        "backgroundColor": "#FDF5ED",
+                        "cornerRadius": "md",
+                        "paddingAll": "md",
+                        "margin": "lg",
+                        "contents": [
+                            {
+                                "type": "text",
+                                "text": "🩺 建議請教醫師的關鍵問診",
+                                "weight": "bold",
+                                "size": "sm",
+                                "color": "#B85D19",
+                            },
+                            {"type": "box", "layout": "vertical", "contents": question_boxes, "margin": "sm"},
+                        ],
+                    },
+                    # 隨身備忘
+                    {
+                        "type": "box",
+                        "layout": "vertical",
+                        "margin": "md",
+                        "contents": [
+                            {
+                                "type": "text",
+                                "text": "💡 陪診日常叮嚀：",
+                                "size": "xs",
+                                "weight": "bold",
+                                "color": "#5F6A64",
+                            },
+                            {"type": "box", "layout": "vertical", "contents": reminder_boxes, "margin": "xs"},
+                        ],
+                    },
+                ],
+                "paddingAll": "lg",
+            },
+            "footer": {
+                "type": "box",
+                "layout": "horizontal",
+                "spacing": "md",
+                "backgroundColor": "#FBF9F5",
+                "contents": [
+                    {
+                        "type": "button",
+                        "style": "primary",
+                        "color": "#245A44",
+                        "height": "sm",
+                        "action": {
+                            "type": "uri",
+                            "label": "🌐 線上完整好日札",
+                            "uri": dash_url,
+                        },
+                        "flex": 1,
+                    },
+                    {
+                        "type": "button",
+                        "style": "secondary",
+                        "height": "sm",
+                        "action": {
+                            "type": "postback",
+                            "label": "🔄 重整小抄",
+                            "data": "action=clinic_memo",
+                            "displayText": "我想重新整理門診小抄",
+                        },
+                        "flex": 1,
+                    },
+                ],
+                "paddingAll": "md",
+            },
+        },
+    }
+
+
+# ---------------------------------------------------------------------
+# 2. 外食與飲食「拍照 AI 瞬間快篩」Flex 卡片
+# ---------------------------------------------------------------------
+
+
+def build_food_screening_flex(food: Any, patient_nickname: str) -> dict[str, Any]:
+    """生成外食與料理拍照 AI 避雷快篩 Flex 卡片。"""
+    dish_name = getattr(food, "dish_name", "") or food.get("dish_name", "今日餐點料理")
+    ingredients = getattr(food, "main_ingredients", []) or food.get("main_ingredients", [])
+    level = getattr(food, "overall_level", "yellow") or food.get("overall_level", "yellow")
+    k_risk = getattr(food, "potassium_risk", "medium") or food.get("potassium_risk", "medium")
+    k_note = getattr(food, "potassium_note", "") or food.get("potassium_note", "")
+    p_risk = getattr(food, "phosphorus_risk", "medium") or food.get("phosphorus_risk", "medium")
+    p_note = getattr(food, "phosphorus_note", "") or food.get("phosphorus_note", "")
+    na_note = getattr(food, "sodium_water_note", "") or food.get("sodium_water_note", "")
+    hacks = getattr(food, "eating_hacks", []) or food.get("eating_hacks", [])
+    summary = getattr(food, "friendly_summary", "") or food.get("friendly_summary", "")
+
+    # 等級樣式
+    level_color_map = {
+        "green": ("#245A44", "#EDF5F0", "🟢 放心享用 · 掌握基本原則"),
+        "yellow": ("#B85D19", "#FDF5ED", "🟡 留心份量 · 避開濃湯菜湯"),
+        "red": ("#A32A2A", "#FDF0F0", "🔴 高雷警戒 · 請照降雷法吃"),
+    }
+    header_color, box_bg, level_text = level_color_map.get(level, level_color_map["yellow"])
+
+    # 食材標籤
+    ing_text = "、".join(ingredients[:5]) if ingredients else "一般家庭常備食材"
+
+    # 降雷吃法
+    hack_boxes = []
+    for i, h in enumerate(hacks[:3], 1):
+        hack_boxes.append(
+            {
+                "type": "box",
+                "layout": "horizontal",
+                "contents": [
+                    {
+                        "type": "text",
+                        "text": f"第{i}招",
+                        "size": "xs",
+                        "color": "#245A44",
+                        "weight": "bold",
+                        "flex": 2,
+                    },
+                    {
+                        "type": "text",
+                        "text": str(h),
+                        "size": "sm",
+                        "color": "#2C302E",
+                        "wrap": True,
+                        "flex": 8,
+                    },
+                ],
+                "margin": "sm",
+            }
+        )
+
+    return {
+        "type": "flex",
+        "altText": f"🍽️ {dish_name} 透析飲食快篩結果",
+        "contents": {
+            "type": "bubble",
+            "size": "giga",
+            "header": {
+                "type": "box",
+                "layout": "vertical",
+                "backgroundColor": header_color,
+                "contents": [
+                    {
+                        "type": "box",
+                        "layout": "horizontal",
+                        "contents": [
+                            {
+                                "type": "text",
+                                "text": "🍽️ 外食 AI 瞬間快篩",
+                                "weight": "bold",
+                                "size": "md",
+                                "color": "#FFFFFF",
+                                "flex": 8,
+                            },
+                            {
+                                "type": "text",
+                                "text": "透析飲食指引",
+                                "size": "xs",
+                                "color": "#F3ECE4",
+                                "align": "end",
+                                "flex": 4,
+                            },
+                        ],
+                    },
+                    {
+                        "type": "text",
+                        "text": dish_name,
+                        "weight": "bold",
+                        "size": "xl",
+                        "color": "#FFFFFF",
+                        "margin": "sm",
+                    },
+                    {
+                        "type": "text",
+                        "text": level_text,
+                        "size": "xs",
+                        "color": "#FFFFFF",
+                        "margin": "xs",
+                    },
+                ],
+                "paddingAll": "lg",
+            },
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "backgroundColor": "#FFFFFF",
+                "contents": [
+                    # 食材辨識
+                    {
+                        "type": "box",
+                        "layout": "horizontal",
+                        "contents": [
+                            {"type": "text", "text": "辨識主要食材：", "size": "xs", "color": "#5F6A64", "flex": 3},
+                            {"type": "text", "text": ing_text, "size": "xs", "color": "#2C302E", "weight": "bold", "wrap": True, "flex": 7},
+                        ],
+                    },
+                    {"type": "separator", "margin": "md", "color": "#E6DFD3"},
+                    # 鉀、磷、鈉水分評估區
+                    {
+                        "type": "box",
+                        "layout": "vertical",
+                        "margin": "md",
+                        "contents": [
+                            {
+                                "type": "box",
+                                "layout": "horizontal",
+                                "contents": [
+                                    {"type": "text", "text": "🥬 鉀離子：", "size": "sm", "weight": "bold", "color": "#2C302E", "flex": 3},
+                                    {"type": "text", "text": f"[{k_risk.upper()}] {k_note}", "size": "xs", "color": "#5F6A64", "wrap": True, "flex": 7},
+                                ],
+                            },
+                            {
+                                "type": "box",
+                                "layout": "horizontal",
+                                "margin": "sm",
+                                "contents": [
+                                    {"type": "text", "text": "🥩 磷離子：", "size": "sm", "weight": "bold", "color": "#2C302E", "flex": 3},
+                                    {"type": "text", "text": f"[{p_risk.upper()}] {p_note}", "size": "xs", "color": "#5F6A64", "wrap": True, "flex": 7},
+                                ],
+                            },
+                            {
+                                "type": "box",
+                                "layout": "horizontal",
+                                "margin": "sm",
+                                "contents": [
+                                    {"type": "text", "text": "💧 水分鹽鈉：", "size": "sm", "weight": "bold", "color": "#2C302E", "flex": 3},
+                                    {"type": "text", "text": na_note, "size": "xs", "color": "#5F6A64", "wrap": True, "flex": 7},
+                                ],
+                            },
+                        ],
+                    },
+                    # 降雷救援吃法指南
+                    {
+                        "type": "box",
+                        "layout": "vertical",
+                        "backgroundColor": "#EDF5F0",
+                        "cornerRadius": "md",
+                        "paddingAll": "md",
+                        "margin": "lg",
+                        "contents": [
+                            {
+                                "type": "text",
+                                "text": "🌿 洗腎長輩「降雷救援吃法」",
+                                "weight": "bold",
+                                "size": "sm",
+                                "color": "#245A44",
+                            },
+                            {"type": "box", "layout": "vertical", "contents": hack_boxes, "margin": "sm"},
+                        ],
+                    },
+                    # 溫暖總結
+                    {
+                        "type": "text",
+                        "text": f"💬 {summary}",
+                        "size": "xs",
+                        "color": "#8E9892",
+                        "wrap": True,
+                        "margin": "md",
+                    },
+                ],
+                "paddingAll": "lg",
+            },
+            "footer": {
+                "type": "box",
+                "layout": "horizontal",
+                "spacing": "md",
+                "backgroundColor": "#FBF9F5",
+                "contents": [
+                    {
+                        "type": "button",
+                        "style": "primary",
+                        "color": "#245A44",
+                        "height": "sm",
+                        "action": {
+                            "type": "message",
+                            "label": "💧 記喝水 100cc",
+                            "text": "喝水 100",
+                        },
+                        "flex": 1,
+                    },
+                    {
+                        "type": "button",
+                        "style": "secondary",
+                        "height": "sm",
+                        "action": {
+                            "type": "message",
+                            "label": "📸 再拍一道",
+                            "text": "外食快篩",
+                        },
+                        "flex": 1,
+                    },
+                ],
+                "paddingAll": "md",
+            },
+        },
+    }
+
+
+# ---------------------------------------------------------------------
+# 3. 危急值主動預警推播 (Proactive Critical Alert) Flex 卡片
+# ---------------------------------------------------------------------
+
+
+def build_critical_alert_flex(alerts: list[Any], patient_nickname: str, family_id: str | None = None) -> dict[str, Any]:
+    """生成重大危急值專屬緊急警戒 Flex 卡片。"""
+    alert_rows = []
+    for a in alerts:
+        name = getattr(a, "name", "") or a.get("name", "")
+        code = getattr(a, "code", "") or a.get("code", "")
+        val = getattr(a, "value", "") or a.get("value", "")
+        unit = getattr(a, "unit", "") or a.get("unit", "")
+        reason = getattr(a, "reason", "") or a.get("reason", "")
+        action = getattr(a, "action", "") or a.get("action", "")
+
+        alert_rows.append(
+            {
+                "type": "box",
+                "layout": "vertical",
+                "backgroundColor": "#FFF5F5",
+                "cornerRadius": "md",
+                "paddingAll": "md",
+                "margin": "md",
+                "contents": [
+                    {
+                        "type": "box",
+                        "layout": "horizontal",
+                        "contents": [
+                            {
+                                "type": "text",
+                                "text": f"🚨 {name} ({code})",
+                                "weight": "bold",
+                                "size": "md",
+                                "color": "#A32A2A",
+                                "flex": 6,
+                            },
+                            {
+                                "type": "text",
+                                "text": f"{val} {unit}".strip(),
+                                "weight": "bold",
+                                "size": "md",
+                                "color": "#A32A2A",
+                                "align": "end",
+                                "flex": 4,
+                            },
+                        ],
+                    },
+                    {
+                        "type": "text",
+                        "text": f"危急原因：{reason}",
+                        "size": "xs",
+                        "color": "#7F1D1D",
+                        "wrap": True,
+                        "margin": "xs",
+                    },
+                    {
+                        "type": "box",
+                        "layout": "vertical",
+                        "backgroundColor": "#FEE2E2",
+                        "cornerRadius": "sm",
+                        "paddingAll": "sm",
+                        "margin": "sm",
+                        "contents": [
+                            {
+                                "type": "text",
+                                "text": f"👉 即時處置：{action}",
+                                "size": "xs",
+                                "color": "#991B1B",
+                                "wrap": True,
+                                "weight": "bold",
+                            }
+                        ],
+                    },
+                ],
+            }
+        )
+
+    dash_url = get_settings().get_dashboard_url(family_id)
+
+    return {
+        "type": "flex",
+        "altText": f"🚨 【危急警戒】{patient_nickname} 的檢驗數值觸發緊急安全紅線！",
+        "contents": {
+            "type": "bubble",
+            "size": "giga",
+            "header": {
+                "type": "box",
+                "layout": "vertical",
+                "backgroundColor": "#A32A2A",
+                "contents": [
+                    {
+                        "type": "text",
+                        "text": "🚨 臨床重大危急值主動警報",
+                        "weight": "bold",
+                        "size": "lg",
+                        "color": "#FFFFFF",
+                    },
+                    {
+                        "type": "text",
+                        "text": f"受檢對象：{patient_nickname} · 需立即留心與處置",
+                        "size": "xs",
+                        "color": "#FEE2E2",
+                        "margin": "xs",
+                    },
+                ],
+                "paddingAll": "lg",
+            },
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "backgroundColor": "#FFFFFF",
+                "contents": [
+                    {
+                        "type": "text",
+                        "text": "⚠️ 系統依據國際透析標準 (KDOQI/KDIGO) 偵測到以下數值偏離安全帶，存在急性健康風險：",
+                        "size": "sm",
+                        "color": "#2C302E",
+                        "wrap": True,
+                    },
+                    {"type": "box", "layout": "vertical", "contents": alert_rows},
+                    {
+                        "type": "text",
+                        "text": "安全守則：請保持鎮定，如長輩出現胸悶、心悸、全身癱軟無力、頭暈或呼吸喘，請立即撥打 119 或至急診就醫！",
+                        "size": "xs",
+                        "color": "#A32A2A",
+                        "wrap": True,
+                        "margin": "lg",
+                        "weight": "bold",
+                    },
+                ],
+                "paddingAll": "lg",
+            },
+            "footer": {
+                "type": "box",
+                "layout": "vertical",
+                "backgroundColor": "#FBF9F5",
+                "contents": [
+                    {
+                        "type": "button",
+                        "style": "primary",
+                        "color": "#A32A2A",
+                        "action": {
+                            "type": "uri",
+                            "label": "📊 查看線上完整存摺數據",
+                            "uri": dash_url,
+                        },
+                    }
+                ],
+                "paddingAll": "md",
+            },
+        },
+    }
+

@@ -761,6 +761,138 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       color: var(--text-dim);
       font-size: 0.86rem;
     }
+
+    /* ========================================================
+       門診 30 秒就醫小抄 Modal 彈窗與打卡生活小箋
+       ======================================================== */
+    .btn-memo-open {
+      background: var(--c-bamboo-bg);
+      border-color: var(--c-bamboo);
+      color: var(--c-bamboo);
+      font-weight: 700;
+    }
+    .btn-memo-open:hover {
+      background: var(--c-bamboo);
+      color: #FFFFFF;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(44, 48, 46, 0.45);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 16px;
+    }
+    .modal-overlay.open {
+      display: flex;
+    }
+    .memo-modal-card {
+      background: var(--bg-paper);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-card);
+      width: 100%;
+      max-width: 680px;
+      max-height: 88vh;
+      overflow-y: auto;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.15);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .memo-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 1px dashed var(--card-border);
+      padding-bottom: 12px;
+    }
+    .memo-modal-title {
+      font-family: 'Noto Serif TC', serif;
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--c-bamboo);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-memo-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: none;
+    }
+    .btn-memo-copy {
+      background: var(--c-bamboo);
+      color: #FFFFFF;
+    }
+    .btn-memo-copy:hover {
+      background: #1b4433;
+    }
+    .btn-memo-close {
+      background: var(--bg-subtle);
+      color: var(--text-ink);
+    }
+
+    /* 日常自主管理打卡小卡 */
+    .daily-tracker-card {
+      background: #FFFFFF;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-card);
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow-paper);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .tracker-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+      min-width: 140px;
+    }
+    .tracker-label {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .tracker-val {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--text-ink);
+      font-feature-settings: "tnum";
+    }
+    .tracker-progress-bg {
+      width: 100%;
+      height: 8px;
+      background: var(--bg-subtle);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .tracker-progress-bar {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.3s ease;
+    }
   </style>
 </head>
 <body>
@@ -772,6 +904,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         <p class="subtitle" id="pageSubtitle">把每天的活力存進來，悠悠哉哉過好日</p>
       </div>
       <div class="header-actions">
+        <!-- 門診 30 秒就醫小抄快捷按鈕 -->
+        <button class="btn btn-memo-open" onclick="openClinicMemoModal()">
+          📝 門診就醫小抄
+        </button>
         <!-- 核心功能：一鍵切換長輩護眼大字版 -->
         <button class="mode-switch-btn" id="modeSwitchBtn" onclick="toggleSeniorMode()">
           👓 長輩大字版
@@ -795,6 +931,27 @@ DASHBOARD_HTML = """<!DOCTYPE html>
          視圖 1：【元氣手札與走勢】 (Overview Tab)
          ========================================== -->
     <main id="viewOverview" class="view-panel active">
+      <!-- 0. 今日日常自主生活打卡小箋 -->
+      <div class="daily-tracker-card" id="dailyTrackerCard">
+        <div class="tracker-item">
+          <div class="tracker-label">💧 今日喝水進度</div>
+          <div class="tracker-val" id="trackerWaterVal">0 <span style="font-size:0.8rem; font-weight:normal; color:var(--text-muted);">/ 800 ml</span></div>
+          <div class="tracker-progress-bg">
+            <div class="tracker-progress-bar" id="trackerWaterBar" style="width: 0%; background: var(--c-bamboo);"></div>
+          </div>
+        </div>
+        <div class="tracker-item">
+          <div class="tracker-label">⚖️ 今日體重狀況</div>
+          <div class="tracker-val" id="trackerWeightVal">— <span style="font-size:0.8rem; font-weight:normal; color:var(--text-muted);">kg</span></div>
+          <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;" id="trackerWeightNote">乾體重設定：55.0 kg</div>
+        </div>
+        <div class="tracker-item">
+          <div class="tracker-label">❤️ 今日晨起血壓</div>
+          <div class="tracker-val" id="trackerBpVal">— <span style="font-size:0.8rem; font-weight:normal; color:var(--text-muted);">mmHg</span></div>
+          <div style="font-size: 0.78rem; color: var(--c-bamboo);" id="trackerBpNote">🟢 血壓平穩標準</div>
+        </div>
+      </div>
+
       <!-- 1. AI 智能生活月箋 -->
       <div class="letter-card" id="aiLetterCard">
         <div class="letter-header">
@@ -885,10 +1042,39 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     </div>
   </div>
 
+  <!-- 門診 30 秒就醫小抄彈窗 Modal -->
+  <div class="modal-overlay" id="clinicMemoModal" onclick="handleModalOverlayClick(event)">
+    <div class="memo-modal-card">
+      <div class="memo-modal-header">
+        <div>
+          <div class="memo-modal-title">📝 門診 30 秒問診就醫小抄</div>
+          <div style="font-size:0.84rem; color:var(--text-muted); margin-top:2px;">
+            讓醫師 30 秒快速瀏覽近三月關鍵變化，陪診提問不漏接
+          </div>
+        </div>
+        <button class="btn btn-memo-close" onclick="closeClinicMemoModal()">✕ 關閉</button>
+      </div>
+
+      <div id="memoModalBody">
+        <!-- 動態渲染門診小抄內容 -->
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:8px;">
+        <span style="font-size:0.8rem; color:var(--text-dim);" id="copyNotice">已對齊近 3 期檢驗歷程</span>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-memo-action btn-memo-copy" onclick="copyClinicMemoText()">📋 複製小抄文字</button>
+          <button class="btn-memo-action btn-memo-close" onclick="closeClinicMemoModal()">關閉</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     const reports = window.__REPORTS_DATA__ || [];
     const families = window.__FAMILIES_DATA__ || [];
     const currentFamily = window.__CURRENT_FAMILY__ || (families[0] || null);
+    const dailyData = window.__DAILY_DATA__ || [];
+    const liffId = window.__LIFF_ID__ || "";
 
     // 1. 核心指標定義（9大項）
     const metricDefs = {
@@ -1552,11 +1738,271 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       container.innerHTML = html;
     }
 
+    function openClinicMemoModal() {
+      const modal = document.getElementById('clinicMemoModal');
+      renderClinicMemoModal();
+      modal.classList.add('open');
+    }
+
+    function closeClinicMemoModal() {
+      const modal = document.getElementById('clinicMemoModal');
+      modal.classList.remove('open');
+    }
+
+    function handleModalOverlayClick(e) {
+      if (e.target.id === 'clinicMemoModal') {
+        closeClinicMemoModal();
+      }
+    }
+
+    function getClinicMemoData() {
+      const reps = reports;
+      if (!reps || reps.length === 0) {
+        return {
+          overview: "目前尚無足夠檢驗歷史，建議上傳近 1~3 期檢驗單由系統自動為您彙整。",
+          highlights: ["無歷史數據"],
+          questions: ["1. 目前透析狀況是否穩定？", "2. 下期抽血檢驗何時安排？"],
+          reminders: ["日常維持體重秤重與限水管理。"]
+        };
+      }
+
+      // 取近三期
+      const latest = reps[0];
+      const prev = reps.length > 1 ? reps[1] : null;
+      const oldest = reps.length > 2 ? reps[2] : null;
+
+      const highlights = [];
+      const questions = [];
+
+      // Hb
+      if (latest.hemoglobin != null) {
+        let hbStr = `血紅素 (Hb)：${latest.hemoglobin} g/dL`;
+        if (oldest && oldest.hemoglobin != null) {
+          hbStr = `血紅素 (Hb)：${oldest.hemoglobin} → ${prev ? prev.hemoglobin + ' → ' : ''}${latest.hemoglobin} g/dL`;
+        }
+        if (latest.hemoglobin >= 11.0) {
+          hbStr += '（達標良好 🟢）';
+          questions.push(`血紅素已穩定回升至 ${latest.hemoglobin} g/dL，請問紅血球生成素 (EPO) 劑量是否需要維持或稍微減量？`);
+        } else if (latest.hemoglobin < 10.0) {
+          hbStr += '（仍偏低 🟡）';
+          questions.push(`血紅素目前為 ${latest.hemoglobin} g/dL，是否需要加驗鐵蛋白 (Ferritin) 或加打造血針/補鐵？`);
+        }
+        highlights.push(hbStr);
+      }
+
+      // K
+      if (latest.potassium != null) {
+        let kStr = `血鉀 (K)：${latest.potassium} mEq/L`;
+        if (latest.potassium >= 5.3) {
+          kStr += '（偏高警戒 🔴）';
+          questions.push(`血鉀達 ${latest.potassium} mEq/L 偏高，是否需要調整透析液鉀濃度設定或開立降鉀粉？`);
+        } else if (latest.potassium <= 5.1 && latest.potassium >= 3.5) {
+          kStr += '（維持安全區 🟢）';
+        }
+        highlights.push(kStr);
+      }
+
+      // iPTH
+      if (latest.ipth != null) {
+        let ipthStr = `副甲狀腺素 (iPTH)：${latest.ipth} pg/mL`;
+        if (latest.ipth > 600) {
+          ipthStr += '（偏高，需關注骨骼心血管 🔴）';
+          questions.push(`副甲狀腺素高達 ${latest.ipth} pg/mL，是否建議評估擬鈣劑 (Cinacalcet/Etelcalcetide) 或調整活性維生素 D 用法？`);
+        } else {
+          ipthStr += '（控制中）';
+        }
+        highlights.push(ipthStr);
+      }
+
+      // P
+      if (latest.phosphorus != null) {
+        highlights.push(`血磷 (P)：${latest.phosphorus} mg/dL（目標 3.5~5.5）`);
+      }
+
+      if (questions.length < 3) {
+        questions.push(`長輩透析後乾體重評估是否恰當？透析間水分控制是否合宜？`);
+      }
+
+      const overview = `近三期整體透析狀況平穩。血紅素表現優異（由 ${oldest ? oldest.hemoglobin : ''} 改善至 ${latest.hemoglobin}），血鉀維持在安全區（${latest.potassium}）；副甲狀腺素（${latest.ipth}）數值偏高，建議把握門診時間討論後續藥物與骨骼保護策略。`;
+
+      const reminders = [
+        "就診當天請帶齊長輩目前服用的所有藥物清單（尤其是降磷劑、降壓藥）。",
+        "回診前請先測量今日晨起體重與血壓以供醫師參考。",
+        "主動向醫師反映長輩最近的食慾、精神狀況與睡眠品質。"
+      ];
+
+      return { overview, highlights, questions, reminders };
+    }
+
+    function renderClinicMemoModal() {
+      const data = getClinicMemoData();
+      const container = document.getElementById('memoModalBody');
+      if (!container) return;
+
+      container.innerHTML = `
+        <div style="background:var(--c-bamboo-bg); border-radius:12px; padding:16px; border:1px solid rgba(36,90,68,0.2);">
+          <div style="font-size:0.86rem; font-weight:700; color:var(--c-bamboo); margin-bottom:6px;">
+            【30 秒看診快速簡報】
+          </div>
+          <div style="font-size:0.96rem; color:var(--text-ink); line-height:1.68;">
+            ${data.overview}
+          </div>
+        </div>
+
+        <div style="margin-top:16px;">
+          <div style="font-size:0.92rem; font-weight:700; color:var(--text-ink); margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+            <span>📈 近期關鍵數據走勢亮點</span>
+          </div>
+          <div style="background:#FFFFFF; border:1px solid var(--card-border); border-radius:10px; padding:12px 16px;">
+            ${data.highlights.map(h => `
+              <div style="display:flex; gap:8px; margin:6px 0; font-size:0.92rem;">
+                <span style="color:var(--c-bamboo);">✦</span>
+                <span style="color:var(--text-ink); font-weight:500;">${h}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div style="margin-top:16px;">
+          <div style="font-size:0.92rem; font-weight:700; color:var(--c-amber); margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+            <span>🩺 建議主動請教醫師的關鍵問診</span>
+          </div>
+          <div style="background:var(--c-amber-bg); border:1px solid rgba(184,93,25,0.25); border-radius:10px; padding:14px 16px;">
+            ${data.questions.map((q, idx) => `
+              <div style="display:flex; gap:8px; margin:8px 0; font-size:0.92rem; line-height:1.6;">
+                <span style="color:var(--c-amber); font-weight:700;">Q${idx+1}:</span>
+                <span style="color:var(--text-ink); font-weight:600;">${q}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div style="margin-top:16px; background:#FFFFFF; border:1px solid var(--card-border); border-radius:10px; padding:12px 16px;">
+          <div style="font-size:0.86rem; font-weight:700; color:var(--text-muted); margin-bottom:6px;">
+            💡 陪診日常叮嚀：
+          </div>
+          ${data.reminders.map(r => `
+            <div style="font-size:0.84rem; color:var(--text-muted); margin:4px 0;">• ${r}</div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function copyClinicMemoText() {
+      const data = getClinicMemoData();
+      const lines = [
+        '【門診 30 秒就醫小抄】',
+        '',
+        '● 30秒概述：',
+        data.overview,
+        '',
+        '● 關鍵數據亮點：',
+        ...data.highlights.map(h => '・ ' + h),
+        '',
+        '● 建議向醫師提問：',
+        ...data.questions.map((q, i) => (i + 1) + '. ' + q),
+        '',
+        '● 叮嚀：',
+        ...data.reminders.map(r => '・ ' + r)
+      ];
+      const text = lines.join(String.fromCharCode(10));
+
+      navigator.clipboard.writeText(text).then(() => {
+        const notice = document.getElementById('copyNotice');
+        if (notice) {
+          notice.innerText = '✅ 已成功複製小抄文字！可直接貼至 LINE 群組！';
+          notice.style.color = 'var(--c-bamboo)';
+          setTimeout(() => {
+            notice.innerText = '已對齊近 3 期檢驗歷程';
+            notice.style.color = 'var(--text-dim)';
+          }, 4000);
+        }
+      });
+    }
+
+    function renderDailyStatusCard() {
+      const dailyList = dailyData;
+      const fam = currentFamily || {};
+      const dryWeight = fam.dry_weight_kg || 55.0;
+      const waterLimit = fam.daily_water_limit_ml || 800;
+
+      const latestDaily = dailyList.length > 0 ? dailyList[0] : null;
+      const waterVal = latestDaily && latestDaily.water_ml ? latestDaily.water_ml : 0;
+      const weightVal = latestDaily && latestDaily.weight_kg ? latestDaily.weight_kg : null;
+      const sys = latestDaily && latestDaily.systolic ? latestDaily.systolic : null;
+      const dia = latestDaily && latestDaily.diastolic ? latestDaily.diastolic : null;
+
+      // 喝水渲染
+      const waterValEl = document.getElementById('trackerWaterVal');
+      const waterBarEl = document.getElementById('trackerWaterBar');
+      if (waterValEl && waterBarEl) {
+        const pct = Math.min(Math.round((waterVal / waterLimit) * 100), 100);
+        waterValEl.innerHTML = `${waterVal} <span style="font-size:0.8rem; font-weight:normal; color:var(--text-muted);">/ ${waterLimit} ml (${pct}%)</span>`;
+        waterBarEl.style.width = `${pct}%`;
+        if (pct <= 80) {
+          waterBarEl.style.background = 'var(--c-bamboo)';
+        } else if (pct <= 100) {
+          waterBarEl.style.background = 'var(--c-amber)';
+        } else {
+          waterBarEl.style.background = 'var(--c-cinnabar)';
+        }
+      }
+
+      // 體重渲染
+      const weightValEl = document.getElementById('trackerWeightVal');
+      const weightNoteEl = document.getElementById('trackerWeightNote');
+      if (weightValEl && weightNoteEl) {
+        if (weightVal) {
+          weightValEl.innerHTML = `${weightVal} <span style="font-size:0.8rem; font-weight:normal; color:var(--text-muted);">kg</span>`;
+          const diff = (weightVal - dryWeight).toFixed(1);
+          const pct = ((weightVal - dryWeight) / dryWeight * 100).toFixed(1);
+          const sign = diff > 0 ? '+' : '';
+          let levelTag = '🟢 控制良好';
+          let color = 'var(--c-bamboo)';
+          if (pct > 5.0) {
+            levelTag = '🔴 滯水偏高警示';
+            color = 'var(--c-cinnabar)';
+          } else if (pct > 3.0) {
+            levelTag = '🟡 稍有增加';
+            color = 'var(--c-amber)';
+          }
+          weightNoteEl.innerHTML = `乾體重: ${dryWeight} kg (${sign}${diff}kg, ${pct}%) <span style="color:${color}; font-weight:700;">${levelTag}</span>`;
+        } else {
+          weightValEl.innerHTML = `— <span style="font-size:0.8rem; font-weight:normal; color:var(--text-muted);">kg</span>`;
+          weightNoteEl.innerHTML = `乾體重設定：${dryWeight} kg（今日待打卡）`;
+        }
+      }
+
+      // 血壓渲染
+      const bpValEl = document.getElementById('trackerBpVal');
+      const bpNoteEl = document.getElementById('trackerBpNote');
+      if (bpValEl && bpNoteEl) {
+        if (sys && dia) {
+          bpValEl.innerHTML = `${sys}/${dia} <span style="font-size:0.8rem; font-weight:normal; color:var(--text-muted);">mmHg</span>`;
+          if (sys >= 140 || dia >= 90) {
+            bpNoteEl.innerHTML = '🟡 血壓稍高，多放鬆休息';
+            bpNoteEl.style.color = 'var(--c-amber)';
+          } else if (sys < 100) {
+            bpNoteEl.innerHTML = '🟡 血壓稍低，起身慢一點';
+            bpNoteEl.style.color = 'var(--c-amber)';
+          } else {
+            bpNoteEl.innerHTML = '🟢 血壓平穩標準';
+            bpNoteEl.style.color = 'var(--c-bamboo)';
+          }
+        } else {
+          bpValEl.innerHTML = `— <span style="font-size:0.8rem; font-weight:normal; color:var(--text-muted);">mmHg</span>`;
+          bpNoteEl.innerHTML = `今日晨起血壓待記錄`;
+          bpNoteEl.style.color = 'var(--text-muted)';
+        }
+      }
+    }
+
     function init() {
       document.getElementById('pageTitle').innerText = '生活元氣記帳本';
       initSeniorMode();
       initLiff();
       renderAISummary();
+      renderDailyStatusCard();
       renderLatestQuickBox();
       renderHistoryControls();
       renderMatrixTable();
@@ -1578,7 +2024,7 @@ async def get_dashboard(family_id: str | None = Query(None)) -> HTMLResponse:
     settings = get_settings()
 
     # 取得所有家庭
-    families_res = await c.table("families").select("id, display_name, line_group_id").execute()
+    families_res = await c.table("families").select("*").execute()
     families = families_res.data or []
 
     # 決定當前家庭
@@ -1589,23 +2035,43 @@ async def get_dashboard(family_id: str | None = Query(None)) -> HTMLResponse:
         target_family = families[0]
 
     # 取得該家庭的報告（最新日期排在最前）
-    query = c.table("medical_reports").select("*").order("test_date", desc=True)
+    reports: list[dict[str, Any]] = []
+    daily_records: list[dict[str, Any]] = []
+
     if target_family:
-        query = query.eq("family_id", target_family["id"])
-    reports_res = await query.execute()
-    reports = reports_res.data or []
+        reports_res = (
+            await c.table("medical_reports")
+            .select("*")
+            .eq("family_id", target_family["id"])
+            .order("test_date", desc=True)
+            .execute()
+        )
+        reports = reports_res.data or []
+
+        daily_res = (
+            await c.table("daily_records")
+            .select("*")
+            .eq("family_id", target_family["id"])
+            .order("record_date", desc=True)
+            .limit(10)
+            .execute()
+        )
+        daily_records = daily_res.data or []
 
     # 注入 JSON 資料至 HTML
     safe_reports = json.dumps(reports, default=str)
     safe_families = json.dumps(families, default=str)
     safe_current_family = json.dumps(target_family, default=str)
+    safe_daily = json.dumps(daily_records, default=str)
     safe_liff_id = json.dumps(settings.liff_id or "", default=str)
 
     html = (
         DASHBOARD_HTML.replace("window.__REPORTS_DATA__ || []", safe_reports)
         .replace("window.__FAMILIES_DATA__ || []", safe_families)
         .replace("window.__CURRENT_FAMILY__ || null", safe_current_family)
+        .replace("window.__DAILY_DATA__ || []", safe_daily)
         .replace("window.__LIFF_ID__", safe_liff_id)
     )
 
     return HTMLResponse(content=html)
+
